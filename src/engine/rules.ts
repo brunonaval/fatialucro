@@ -1,6 +1,6 @@
 import { cash, D, date, decimal, money } from './decimal';
 import type { Dec } from './decimal';
-import type { FeeAssessment, FeeLine, FeeRule, Formula, Pending, SaleInput, SimpleFormula, TariffCatalog } from './types';
+import type { Assumption, FeeAssessment, FeeLine, FeeRule, Formula, Pending, SaleInput, SimpleFormula, TariffCatalog } from './types';
 
 function validateFormula(formula: Formula): void {
   if (formula.kind === 'fixed') money(formula.amount, 'tarifa fixa');
@@ -72,13 +72,14 @@ export function calculateFees(input: SaleInput, catalog: TariffCatalog, gross: D
   const pending: Pending[] = [...catalog.pending];
   const excluded: { id: string; reason: string }[] = [];
   const fees: FeeLine[] = [];
+  const assumptions: Assumption[] = [...(catalog.assumptions ?? [])];
   if (input.purpose !== catalog.purpose) {
     pending.push({ id: 'catalog-purpose', message: 'Catálogo histórico e simulação atual não podem ser intercambiados.' });
-    return { fees, pending, excluded };
+    return { fees, pending, excluded, assumptions };
   }
   if (input.date < catalog.simulationFrom || input.date > catalog.simulationUntil) {
     pending.push({ id: 'catalog-date', message: 'A data está fora da janela documental deste catálogo. Atualize as evidências; nenhuma tarifa foi extrapolada.' });
-    return { fees, pending, excluded };
+    return { fees, pending, excluded, assumptions };
   }
   const groups = Map.groupBy(catalog.rules, rule => rule.id);
   const candidates: FeeRule[] = [];
@@ -121,8 +122,12 @@ export function calculateFees(input: SaleInput, catalog: TariffCatalog, gross: D
     }
     const formula = resolveFormula(rule.formula, new D(input.unitPrice));
     if (!formula) { pending.push({ id: rule.id, message: `Faixa de preço não documentada: ${rule.name}.` }); continue; }
-    if (rule.effectiveFrom === null) pending.push({ id: `${rule.id}:effective-date`, message: `${rule.name}: documento conhecido, início de vigência não comprovado.` });
+    if (rule.effectiveFrom === null) assumptions.push({ id: `${rule.id}:effective-date`, kind: 'validity', message: `${rule.name}: documento conhecido, início de vigência não comprovado.` });
+    if (rule.evidence.verification === 'custom') assumptions.push({
+      id: `${rule.id}@${rule.version}:custom`, kind: 'custom-parameters',
+      message: `${rule.name}: parâmetros personalizados. ${rule.evidence.reference}`,
+    });
     fees.push(assess(rule, formula, gross, net, input.quantity));
   }
-  return { fees, pending, excluded };
+  return { fees, pending, excluded, assumptions };
 }

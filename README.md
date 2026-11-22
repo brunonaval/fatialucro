@@ -4,7 +4,9 @@ Calculadora gratuita, pública e offline de precificação para impressão 3D. P
 
 **Estado 0.1:** custos de fabricação, embalagem, descontos, frete líquido, taxas fixas/percentuais, faixas, condições, exclusão de duplicatas, lucro operacional estimado, margem, markup e busca inversa em centavos. Sem servidor, conta, IA, telemetria ou persistência nesta etapa.
 
-A Shopee tem uma **prévia documental de 22/11/2026**, não uma tabela homologada. Pendências de vigência, arredondamento, fronteiras e bases não esclarecidas impedem exibir lucro ou recebimento como determinados. O subtotal conhecido permanece auditável. Uma venda direta sem marketplace pode ser simulada mediante escolha explícita.
+A Shopee tem uma **base documental de 22/11/2026**, não uma tabela homologada. A V0.1 revisada distingue cálculo documental, **simulação provisória com premissas aceitas ou parâmetros personalizados**, e cobranças indeterminadas que bloqueiam a conclusão. Vigência, arredondamento e precedência CPF são premissas explícitas; fórmulas desconhecidas nunca recebem zero automaticamente. O lucro e a busca inversa respeitam essa classificação. Uma venda direta sem marketplace é uma escolha explícita.
+
+O cadastro começa vazio: cada vendedor escolhe CPF ou CNPJ. Parâmetros avançados são expansíveis. Comissão básica obrigatória não pode ser desativada; programas opcionais têm controles independentes. A interface identifica resultados provisórios e nunca os apresenta como repasses confirmados.
 
 ## Executar
 
@@ -43,5 +45,6 @@ O instalador gerado requer WebView2 já instalado. Rust não é necessário no c
 - [Arquitetura e convenções financeiras](docs/architecture.md).
 - [Shopee: proveniência, implementações e pendências](docs/shopee/README.md).
 - [Relatório da entrega](docs/implementation-report-v01.md).
+- [Revisão da V0.1 antes do merge](docs/review-v01.md).
 
 Valores monetários entram como strings decimais. Nunca use uma taxa desconhecida como zero nem trate resultado parcial como lucro confirmado. O cálculo é operacional; tributos não informados e eventos não modelados devem ser avaliados separadamente.

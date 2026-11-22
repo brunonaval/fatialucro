@@ -1,10 +1,10 @@
 # Shopee Brasil — evidências e limites
 
-Síntese própria, produzida para o FatiaLucro em 22/11/2026 a partir do pacote de auditoria **0.4-revisao-de-capturas** disponibilizado pelo usuário. A pesquisa original descreve 84 capturas MHTML e 28 regras/estados. Recebemos a auditoria, o inventário e as fixtures; **não recebemos os MHTML nem os comprovantes primários**. Os estados da auditoria são preservados como evidência documental secundária, não como nova homologação oficial.
+Síntese própria, produzida para o FatiaLucro em 22/11/2026 a partir do pacote de auditoria **0.4-revisao-de-capturas** disponibilizado pelo usuário. Na revisão da V0.1 foram encontrados os MHTML originais em um diretório local externo ao repositório. Foram conferidos os textos dos artigos 26839, 18483, 18484, 26700, 27298, 18712 e 19426 e as tabelas incorporadas de comissão CPF/CNPJ. Os sete hashes do HTML MIME decodificado coincidem com o inventário. Isso confirma a correspondência das capturas examinadas; não comprova uma tabela vigente ao vivo, a adesão da conta ou o recebimento de um pedido. **Os comprovantes históricos primários continuam ausentes.**
 
-O diretório de referência estava ausente na inspeção inicial e foi disponibilizado durante a execução. O ZIP fica fora do Git. Seu SHA-256 foi calculado localmente: `486a7f2c09349f08e87227b62c186aad11f66be0eb02b446dd644f8e711758ec`. O [registro de evidências](evidence-registry.json) conserva URLs, datas e hashes **declarados pelo inventário** para os documentos relevantes. Os hashes dos HTML não puderam ser recomputados sem os originais.
+O diretório de referência estava ausente na inspeção inicial e foi disponibilizado durante a execução. O ZIP fica fora do Git. Seu SHA-256 foi calculado localmente: `486a7f2c09349f08e87227b62c186aad11f66be0eb02b446dd644f8e711758ec`. O [registro de evidências](evidence-registry.json) conserva URLs, datas, hashes do inventário e o resultado da recomputação na revisão. Nenhum MHTML, captura integral, imagem de artigo ou dado de conta foi adicionado ao repositório público.
 
-Os links oficiais de [comissão](https://seller.shopee.com.br/edu/article/26839/Comissao-para-vendedores-CNPJ-e-CPF-em-2026) e [Devolução Fácil](https://seller.shopee.com.br/edu/article/26700/Devolucao-Facil-Shopee) foram consultados nesta execução. O acesso automatizado retornou somente o contêiner da página, sem texto das tarifas; isso **não constitui reverificação independente**. O aplicativo não consulta essas páginas em tempo de uso.
+O acesso web automatizado inicial aos links oficiais retornou somente o contêiner da página. A revisão se apoia nas capturas locais arquivadas, cujo conteúdo foi efetivamente lido. O aplicativo não consulta essas páginas em tempo de uso.
 
 ## Fórmulas implementadas como prévia documental
 
@@ -20,9 +20,19 @@ Os links oficiais de [comissão](https://seller.shopee.com.br/edu/article/26839/
 | Campanha de Destaque | 5% durante adesão | Todas as vendas da loja; sem extrapolar para outra campanha |
 | Transação | componente da comissão | Visível como excluída da soma, nunca acrescentada |
 
-Todas as fórmulas automáticas acima têm `effectiveFrom = null`: o pacote informa datas de publicação e atualização, mas não demonstra a data inicial de todas as tarifas. O catálogo só permite uma **prévia no dia da captura, 22/11/2026**, com pendências de vigência e arredondamento. Isso não declara que as tarifas entraram em vigor nesse dia. Fora dessa janela, nenhuma fórmula é aplicada. Uma futura evidência de vigência deve gerar novo snapshot e testes, sem apagar o anterior.
+Todas as fórmulas automáticas acima mantêm `effectiveFrom = null`: publicação/atualização não demonstram o início da vigência. O catálogo documental se restringe ao cenário de **22/11/2026**. No modo estrito, premissas não aceitas impedem concluir o resultado. Com aceitação explícita da vigência não comprovada e do HALF_UP por ocorrência, os trechos conhecidos podem gerar **simulação provisória**, lucro estimado e preço provisório. A aceitação não inventa faixas, fórmulas ou adesões. Uma futura evidência de vigência deve gerar novo snapshot e testes, sem apagar o anterior.
 
-Descontos do vendedor deixam a comissão percentual pendente porque a base depende da modalidade. Nenhuma base genérica é imposta como regra oficial. Valores fixos calculáveis podem continuar no subtotal parcial.
+Na faixa comum CPF, o artigo 26839 e as tabelas trazem R$4,50, mas um trecho do artigo 18484 ainda menciona R$4. O usuário deve aceitar separadamente a premissa de priorizar a tabela de R$4,50; a divergência não foi resolvida oficialmente. O exemplo R$19,90 tem R$3,98 percentuais + R$4,50 por item = R$8,48 básicos, sem acrescentar transação.
+
+Descontos do vendedor deixam **ambos os componentes da comissão básica** pendentes: a base e a determinação de faixa dependem da modalidade. A revisão corrigiu o cálculo anterior que ainda mostrava a parcela fixa dependente de faixa nesse cenário. Nenhuma base genérica é imposta como regra oficial. Devolução Fácil por pedido, se confirmado como cobrável, pode continuar como parcela conhecida.
+
+## Parâmetros personalizados e resultados provisórios
+
+O usuário pode substituir uma cobrança nomeada por percentual ou valor fixo, selecionando base, incidência por unidade/pedido, origem e período. O demonstrativo identifica a origem `custom`, conserva a evidência e a fórmula substituídas, e separa o subtotal personalizado do documental. Nenhuma taxa desconhecida recebe zero automaticamente; zero personalizado exige entrada explícita. A comissão básica obrigatória não pode ser desativada nem ter seus dois componentes zerados simultaneamente.
+
+Parâmetros para a comissão básica não eliminam silenciosamente o adicional CPF desconhecido. Na regressão CPF <12, a simulação exige também o adicional explícito. Adesões não confirmadas, cadastro ausente e frete não confirmado continuam bloqueantes. Programas ativos sem módulo automático só podem ser resolvidos com a cobrança correspondente informada explicitamente; para bases como antecipação efetiva, informar o valor apurado por pedido evita inventar uma base percentual.
+
+Somente um cenário com **todas as cobranças ativas personalizadas** e sem indeterminações pode usar o período pessoal fora da janela documental. É um cenário do usuário, não uma nova tarifa oficial nem um teste histórico. Cenários mistos não extrapolam as capturas. O solver preserva premissas de todos os preços examinados e interrompe regiões indeterminadas.
 
 ## Regras adiadas ou indeterminadas
 

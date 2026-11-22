@@ -9,6 +9,18 @@ export interface Evidence {
 export interface Pending {
   id: string;
   message: string;
+  // Only these particular missing charges may be replaced by explicit manual values.
+  manualRuleIds?: readonly string[];
+}
+
+export interface Assumption {
+  id: string;
+  message: string;
+  kind: 'validity' | 'rounding' | 'precedence' | 'custom-parameters';
+}
+
+export interface AssessedAssumption extends Assumption {
+  accepted: boolean;
 }
 
 export type SimpleFormula =
@@ -39,6 +51,7 @@ export interface FeeRule {
   effectiveFrom: string | null;
   effectiveUntil: string | null;
   evidence: Evidence;
+  override?: { originalFormula: Formula | null; originalEvidence: Evidence; reason: string };
 }
 
 export interface TariffCatalog {
@@ -50,6 +63,7 @@ export interface TariffCatalog {
   simulationUntil: string;
   rules: readonly FeeRule[];
   pending: readonly Pending[];
+  assumptions?: readonly Assumption[];
 }
 
 export interface ManufacturingInput {
@@ -88,6 +102,7 @@ export interface SaleInput {
   otherOperatingCosts: string;
   selections: Readonly<Record<string, boolean>>;
   facts: Readonly<Record<string, string | boolean>>;
+  acceptedAssumptions?: { validity?: boolean; rounding?: boolean; precedence?: boolean };
 }
 
 export interface FeeAssessment {
@@ -107,6 +122,9 @@ export interface FeeLine {
 
 export interface PricingResult {
   status: 'complete' | 'partial';
+  confidence: 'documented' | 'provisional' | 'indeterminate';
+  settlement: 'not-confirmed';
+  assumptions: AssessedAssumption[];
   catalog: { marketplace: string; version: string; purpose: 'simulation' | 'historical' };
   rounding: 'HALF_UP_PER_OCCURRENCE';
   grossSales: string;
@@ -120,6 +138,8 @@ export interface PricingResult {
   fees: FeeLine[];
   excluded: { id: string; reason: string }[];
   knownMarketplaceFees: string;
+  documentedMarketplaceFees: string;
+  customMarketplaceFees: string;
   pending: Pending[];
   warnings: string[];
   marketplaceNet: string | null;

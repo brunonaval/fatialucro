@@ -1,7 +1,7 @@
 {
   "auditVersion": "0.4-revisao-de-capturas",
   "auditPackageSha256": "486a7f2c09349f08e87227b62c186aad11f66be0eb02b446dd644f8e711758ec",
-  "status": "secondary-documentary-evidence",
+  "status": "local-archived-documents-checked",
   "sources": [
     {
       "auditSourceId": "16",
@@ -11,8 +11,10 @@
       "updatedAsRecorded": "17 de agosto de 2026",
       "declaredHtmlSha256": "a5aa87382be4aeba0657f54cda135fbcab12734985754dc3934f2fb933131084",
       "effectiveFrom": null,
-      "originalHtmlAvailable": false,
-      "hashIndependentlyRecomputed": false
+      "originalHtmlAvailable": true,
+      "hashIndependentlyRecomputed": true,
+      "reviewedAt": "2026-11-22",
+      "reviewMethod": "HTML MIME decodificado: SHA-256 recomputado e trechos relevantes lidos localmente; capturas arquivadas, sem reverificacao de vigencia ao vivo."
     },
     {
       "auditSourceId": "25",
@@ -22,8 +24,10 @@
       "updatedAsRecorded": "",
       "declaredHtmlSha256": "7a9c4a927ac6b4c1d11c63aa6b8ee2a08d6cf56024a399cc48f6e639b8f367d0",
       "effectiveFrom": null,
-      "originalHtmlAvailable": false,
-      "hashIndependentlyRecomputed": false
+      "originalHtmlAvailable": true,
+      "hashIndependentlyRecomputed": true,
+      "reviewedAt": "2026-11-22",
+      "reviewMethod": "HTML MIME decodificado: SHA-256 recomputado e trechos relevantes lidos localmente; capturas arquivadas, sem reverificacao de vigencia ao vivo."
     },
     {
       "auditSourceId": "61",
@@ -33,8 +37,10 @@
       "updatedAsRecorded": "23 de outubro de 2026",
       "declaredHtmlSha256": "d9fb6b1e765d81b72795b599df00903f3246d2ffe62eb5c2f888d7192d548733",
       "effectiveFrom": null,
-      "originalHtmlAvailable": false,
-      "hashIndependentlyRecomputed": false
+      "originalHtmlAvailable": true,
+      "hashIndependentlyRecomputed": true,
+      "reviewedAt": "2026-11-22",
+      "reviewMethod": "HTML MIME decodificado: SHA-256 recomputado e trechos relevantes lidos localmente; capturas arquivadas, sem reverificacao de vigencia ao vivo."
     },
     {
       "auditSourceId": "77",
@@ -44,8 +50,10 @@
       "updatedAsRecorded": "02 de setembro de 2026",
       "declaredHtmlSha256": "2b11a566cc83cb6b2cc3b027d8a4573c2df018d1f49de33da9a8b19fd179ec6e",
       "effectiveFrom": null,
-      "originalHtmlAvailable": false,
-      "hashIndependentlyRecomputed": false
+      "originalHtmlAvailable": true,
+      "hashIndependentlyRecomputed": true,
+      "reviewedAt": "2026-11-22",
+      "reviewMethod": "HTML MIME decodificado: SHA-256 recomputado e trechos relevantes lidos localmente; capturas arquivadas, sem reverificacao de vigencia ao vivo."
     },
     {
       "auditSourceId": "80",
@@ -55,8 +63,10 @@
       "updatedAsRecorded": "21 de outubro de 2026",
       "declaredHtmlSha256": "5ab9fa3648c396208637c52310f55442581f8d3069ebbb377195ece278e8ea8e",
       "effectiveFrom": null,
-      "originalHtmlAvailable": false,
-      "hashIndependentlyRecomputed": false
+      "originalHtmlAvailable": true,
+      "hashIndependentlyRecomputed": true,
+      "reviewedAt": "2026-11-22",
+      "reviewMethod": "HTML MIME decodificado: SHA-256 recomputado e trechos relevantes lidos localmente; capturas arquivadas, sem reverificacao de vigencia ao vivo."
     },
     {
       "auditSourceId": "81",
@@ -66,8 +76,10 @@
       "updatedAsRecorded": "21 de outubro de 2026",
       "declaredHtmlSha256": "7655cf79ce99626c18edc1c29e4542f6fccc4324205dc384e3a4830454a73f4a",
       "effectiveFrom": null,
-      "originalHtmlAvailable": false,
-      "hashIndependentlyRecomputed": false
+      "originalHtmlAvailable": true,
+      "hashIndependentlyRecomputed": true,
+      "reviewedAt": "2026-11-22",
+      "reviewMethod": "HTML MIME decodificado: SHA-256 recomputado e trechos relevantes lidos localmente; capturas arquivadas, sem reverificacao de vigencia ao vivo."
     },
     {
       "auditSourceId": "82",
@@ -77,8 +89,10 @@
       "updatedAsRecorded": "01 de outubro de 2026",
       "declaredHtmlSha256": "331dcf3b8d741697532ae52a8e9399c567e255a29893ad97f3c2c23c03a3d0b5",
       "effectiveFrom": null,
-      "originalHtmlAvailable": false,
-      "hashIndependentlyRecomputed": false
+      "originalHtmlAvailable": true,
+      "hashIndependentlyRecomputed": true,
+      "reviewedAt": "2026-11-22",
+      "reviewMethod": "HTML MIME decodificado: SHA-256 recomputado e trechos relevantes lidos localmente; capturas arquivadas, sem reverificacao de vigencia ao vivo."
     }
   ]
 }
