@@ -2,6 +2,15 @@
 
 ## 0.1.0 — 22/11/2026
 
+Experiência UX V2 (mesma V0.1, sem release):
+
+- Abertura sem custos fictícios, importação/manual/exemplo isolado, oficina opcional e fluxo Impressão → Custos → Venda → Resultado.
+- Navegação Calcular / Meus produtos / Configurações, modo simples/avançado compartilhado, custo sem venda e recálculo com debounce/cancelamento.
+- Bobina por preço/peso líquido real, embalagem de pacote, mão de obra zero consciente e kits de peças equivalentes sem duplicar tarifas.
+- Shopee por perguntas, condições desconhecidas preservadas, premissas explícitas e hierarquia de resultado completo/provisório/parcial.
+- Produtos com revisões, rascunho recuperável, lixeira, backup v2 com conflitos como cópias e migração IndexedDB v3 preservando registros anteriores.
+- Novos testes não interativos e [matriz de requisitos/homologação](docs/ux-v2.md). Nenhuma execução gráfica ou compilação Windows nesta etapa.
+
 Profissionalização de tarifas e UX:
 
 - Catálogos JSON versionados, períodos/estado documental/fonte/verificação, revisão anterior arquivada e seleção por data local do cenário.

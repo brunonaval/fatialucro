@@ -1,12 +1,14 @@
 import { calculatePricing, parseBrazilianMoney } from '../engine';
 import { D } from '../engine/decimal';
-import type { ManualFee, SaleInput } from '../engine';
+import type { ManualFee, ManufacturingInput, SaleInput } from '../engine';
+import type { ExperienceState, PurchaseDraft } from './experience-types';
 import { directSaleCatalog } from '../marketplaces/custom';
 import { createShopeeCatalog, SHOPEE_SNAPSHOT, shopeeFacts, shopeeSelections } from '../marketplaces/shopee/catalog';
 import type { Participation, ShopeeContext } from '../marketplaces/shopee/catalog';
 import type { ImportedPlate } from '../importers/types';
 import { bundledTables } from '../marketplaces/catalogs/bundled';
 import type { ShopeeTable } from '../marketplaces/catalogs/types';
+import { validateExperience } from './experience-validation';
 
 export const manualIds = ['shopee:cpf-extra', 'shopee:returns-protection', 'shopee:highlight', 'shopee:adsEasy', 'shopee:affiliates', 'shopee:cashAdvance'];
 const initialFields: Record<string, string | boolean> = {
@@ -26,8 +28,8 @@ const initialFields: Record<string, string | boolean> = {
 for (const id of manualIds) Object.assign(initialFields, {
   [`${id}:manual`]: false, [`${id}:kind`]: 'fixed', [`${id}:value`]: '', [`${id}:scope`]: '', [`${id}:base`]: 'gross-sales', [`${id}:reference`]: '',
 });
-export interface MaterialDraft { id: string; name: string; grams: string; pricePerKg: string }
-export interface CalculatorDraft { fields: Record<string, string | boolean>; materials: MaterialDraft[] }
+export interface MaterialDraft { id: string; name: string; grams: string; pricePerKg: string; purchase?: PurchaseDraft }
+export interface CalculatorDraft { fields: Record<string, string | boolean>; materials: MaterialDraft[]; ux?: ExperienceState }
 export function localDate(now = new Date()): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
@@ -44,6 +46,29 @@ function integer(value: string, name: string): number {
 export function expenseBreakdown(draft: CalculatorDraft) {
   return { other: parseBrazilianMoney(text(draft, 'other')), advertising: draft.fields.advertisingEnabled === true ? parseBrazilianMoney(text(draft, 'advertising')) : '0.00' };
 }
+export function buildManufacturing(draft: CalculatorDraft): ManufacturingInput {
+  const t = (name: string) => text(draft, name);
+  const value = (name: string) => numeric(t(name), ({ grams: 'Peso de filamento', hours: 'Tempo de impressão', machine: 'Custo da impressora' } as Record<string, string>)[name] ?? name);
+  const cashValue = (name: string) => parseBrazilianMoney(t(name));
+  const ux = draft.ux;
+  const purchase = !draft.materials.length && ux?.filament.mode === 'spool' ? { amount: parseBrazilianMoney(ux.filament.amount), netGrams: numeric(ux.filament.netGrams, 'Peso líquido da bobina') } : undefined;
+  if (!['all-in', 'detailed'].includes(t('machineMode')) || !['unit', 'batch'].includes(t('basis'))) throw new Error('Modo de fabricação inválido.');
+  return {
+    basis: t('basis') as 'unit' | 'batch', piecesPerBatch: t('basis') === 'batch' ? integer(t('pieces'), 'Peças produzidas') : 1,
+    grams: draft.materials.length ? '0' : value('grams'), filamentPerKg: draft.materials.length || purchase ? '0' : cashValue('filament'), printHours: ux?.machineIncluded === false ? '0' : value('hours'),
+    ...(purchase && !draft.materials.length ? { filamentPurchase: purchase } : {}),
+    ...(ux?.saleUnit === 'kit' && ux.intent === 'sale' ? { partsPerUnit: integer(ux.partsPerKit, 'Peças dentro de cada kit') } : {}),
+    ...(draft.materials.length ? { materials: draft.materials.map(item => ({ id: item.id, name: item.name, grams: numeric(item.grams, item.name), pricePerKg: item.purchase ? '0' : parseBrazilianMoney(item.pricePerKg), ...(item.purchase ? { purchase: { amount: parseBrazilianMoney(item.purchase.amount), netGrams: numeric(item.purchase.netGrams, 'Peso líquido') } } : {}) })) } : {}),
+    machine: ux?.machineIncluded === false ? { mode: 'all-in', perHour: '0' } : t('machineMode') === 'all-in' ? { mode: 'all-in', perHour: value('machine') } : { mode: 'detailed', watts: value('watts'), energyPerKwh: value('kwh'), maintenancePerHour: ux && !ux.wearIncluded ? '0' : value('maintenance'), depreciationPerHour: ux && !ux.wearIncluded ? '0' : value('depreciation') },
+    laborMinutes: ux?.labor === 'excluded' || ux?.labor === 'zero' ? '0' : value('laborMinutes'), laborPerHour: ux?.labor === 'excluded' || ux?.labor === 'zero' ? '0' : cashValue('laborHour'),
+    consumablesPerUnit: ux && !ux.extrasIncluded ? '0' : cashValue('consumables'), failureReservePerUnit: ux && !ux.extrasIncluded ? '0' : cashValue('failure'),
+  };
+}
+export function packagingInput(draft: CalculatorDraft): Pick<SaleInput, 'packagingPerUnit' | 'packagingPerOrder' | 'packagingPurchase'> {
+  if (draft.ux && !draft.ux.packagingIncluded) return { packagingPerUnit: '0', packagingPerOrder: '0' };
+  if (draft.ux?.packaging.mode === 'pack') return { packagingPerUnit: '0', packagingPerOrder: parseBrazilianMoney(text(draft, 'packagingOrder')), packagingPurchase: { amount: parseBrazilianMoney(draft.ux.packaging.amount), units: integer(draft.ux.packaging.units, 'Embalagens no pacote') } };
+  return { packagingPerUnit: parseBrazilianMoney(text(draft, 'packagingUnit')), packagingPerOrder: parseBrazilianMoney(text(draft, 'packagingOrder')) };
+}
 
 export function buildScenario(draft: CalculatorDraft, tables: readonly ShopeeTable[] = bundledTables) {
   const t = (name: string) => text(draft, name);
@@ -58,7 +83,8 @@ export function buildScenario(draft: CalculatorDraft, tables: readonly ShopeeTab
     ordersLast90Days: t('marketplace') !== 'shopee' || t('seller') !== 'CPF' || t('orders') === '' ? null : integer(t('orders'), 'Pedidos em 90 dias'),
     returnsProtection: t('returns') as ShopeeContext['returnsProtection'], highlightCampaign: t('highlight') as Participation,
     adsEasy: t('ads') as Participation, affiliates: t('affiliates') as Participation, cashAdvance: t('advance') as Participation,
-    shippingConfirmed: yes('shippingConfirmed'),
+    shippingConfirmed: draft.ux ? draft.ux.shipping !== 'unknown' : yes('shippingConfirmed'),
+    ...(draft.ux ? { volumeStatement: { relation: draft.ux.volume.date === t('date') ? draft.ux.volume.answer : 'unknown' as const, threshold: draft.ux.volume.threshold ?? 0 } } : {}),
   };
   const overrides: Record<string, ManualFee> = {};
   const scope = (name: string) => {
@@ -88,14 +114,8 @@ export function buildScenario(draft: CalculatorDraft, tables: readonly ShopeeTab
   }
   const input: SaleInput = {
     date: t('date'), purpose: 'simulation', unitPrice: m('price'), quantity: integer(t('quantity'), 'Quantidade vendida'),
-    manufacturing: {
-      basis: t('basis') as 'unit' | 'batch', piecesPerBatch: t('basis') === 'batch' ? integer(t('pieces'), 'Peças produzidas') : 1,
-      grams: draft.materials.length ? '0' : v('grams'), filamentPerKg: draft.materials.length ? '0' : m('filament'), printHours: v('hours'),
-      ...(draft.materials.length ? { materials: draft.materials.map(item => ({ ...item, grams: numeric(item.grams, item.name), pricePerKg: parseBrazilianMoney(item.pricePerKg) })) } : {}),
-      machine: t('machineMode') === 'all-in' ? { mode: 'all-in', perHour: v('machine') } : { mode: 'detailed', watts: v('watts'), energyPerKwh: v('kwh'), maintenancePerHour: v('maintenance'), depreciationPerHour: v('depreciation') },
-      laborMinutes: v('laborMinutes'), laborPerHour: m('laborHour'), consumablesPerUnit: m('consumables'), failureReservePerUnit: m('failure'),
-    },
-    packagingPerUnit: m('packagingUnit'), packagingPerOrder: m('packagingOrder'), sellerDiscount: m('discount'), sellerShipping: m('shipping'),
+    manufacturing: buildManufacturing(draft),
+    ...packagingInput(draft), sellerDiscount: m('discount'), sellerShipping: t('marketplace') === 'shopee' && draft.ux?.shipping === 'no' ? '0.00' : m('shipping'),
     otherOperatingCosts: new D(expenseBreakdown(draft).other).plus(expenseBreakdown(draft).advertising).toFixed(2),
     selections: t('marketplace') === 'shopee' ? shopeeSelections(context) : {}, facts: t('marketplace') === 'shopee' ? shopeeFacts(context) : {},
     acceptedAssumptions: { validity: yes('acceptValidity'), rounding: yes('acceptRounding'), precedence: yes('acceptPrecedence') },
@@ -113,7 +133,7 @@ export function applyPlate(draft: CalculatorDraft, plate: ImportedPlate): Calcul
   };
 }
 
-export type SavedKind = 'product' | 'printer' | 'filament' | 'production' | 'marketplace' | 'simulation';
+export type SavedKind = 'product' | 'printer' | 'filament' | 'production' | 'marketplace' | 'simulation' | 'cost-simulation';
 const productionKeys = ['basis', 'pieces', 'grams', 'filament', 'hours', 'materialName', 'machineMode', 'machine', 'watts', 'kwh', 'maintenance', 'depreciation', 'printerName', 'printerPurchase', 'printerLife', 'laborMinutes', 'laborHour', 'consumables', 'failure', 'packagingUnit', 'packagingOrder'];
 const printerKeys = ['printerName', 'machineMode', 'machine', 'watts', 'kwh', 'maintenance', 'depreciation', 'printerPurchase', 'printerLife'];
 export function restoreProfile(current: CalculatorDraft, saved: CalculatorDraft, kind: SavedKind): CalculatorDraft {
@@ -128,7 +148,9 @@ export function validateDraft(value: unknown): asserts value is CalculatorDraft 
   if (!draft.fields || typeof draft.fields !== 'object' || Array.isArray(draft.fields) || !Array.isArray(draft.materials) || draft.materials.length > 32) throw new Error('Estrutura de cadastro inválida.');
   const keys = Object.keys(initialFields);
   if (Object.keys(draft.fields).length !== keys.length || keys.some(key => typeof draft.fields[key] !== typeof initialFields[key] || (typeof draft.fields[key] === 'string' && String(draft.fields[key]).length > 2000))) throw new Error('Campos de cadastro incompatíveis.');
-  if (draft.materials.some(item => !item || ['id', 'name', 'grams', 'pricePerKg'].some(key => typeof item[key as keyof MaterialDraft] !== 'string' || item[key as keyof MaterialDraft].length > 300))) throw new Error('Materiais inválidos.');
+  if (draft.materials.some(item => !item || (['id', 'name', 'grams', 'pricePerKg'] as const).some(key => typeof item[key] !== 'string' || item[key].length > 300))) throw new Error('Materiais inválidos.');
+  for (const item of draft.materials) if (item.purchase && (typeof item.purchase.amount !== 'string' || typeof item.purchase.netGrams !== 'string' || item.purchase.amount.length > 300 || item.purchase.netGrams.length > 300)) throw new Error('Compra de filamento inválida.');
+  if (draft.ux !== undefined) validateExperience(draft.ux);
 }
 export function evaluateDraft(draft: CalculatorDraft) {
   const { input, catalogAt } = buildScenario(draft); const catalog = catalogAt(input.unitPrice);

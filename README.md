@@ -4,16 +4,20 @@ Precificação local de impressão 3D, com custos de produção, simulações de
 
 ## Usar a calculadora
 
-1. Informe um produto ou selecione um `.3mf` fatiado do Bambu Studio / G-code textual compatível. Escolha uma placa e clique em **Aplicar placa à produção**. A leitura é local; não há envio de arquivos.
-2. Confira peso, tempo e peças produzidas. No modo lote, esses valores são totais da placa; no modo unidade, descrevem uma peça. A quantidade vendida é independente. Materiais importados precisam de preço por kg explícito ou perfil salvo.
-3. Escolha custo completo por hora **ou** energia, manutenção e depreciação. Trabalho manual, reserva de falhas e consumíveis aceitam zero. Embalagem pode ser por unidade e/ou pedido.
-4. Escolha venda direta ou Shopee. Em **Loja e tarifas**, configure e salve CPF/CNPJ, adesões e convenções uma vez. O frete é confirmado por cenário; volume antigo de 90 dias volta a ficar em aberto. Nenhum enquadramento ou adesão é presumido.
-5. Informe preço e unidades vendidas, ou escolha lucro desejado por pedido, margem, ponto de equilíbrio ou comparação. Clique em **Calcular cenário**. O campo de margem mostra porcentagem: `20` significa 20% (o motor mantém razão `0.20`). Preços comparados são separados por ponto e vírgula, por exemplo `15; 19,90; 25`.
-6. Salve produto, impressora, filamento, custos de produção, configuração do marketplace ou simulação. **Cadastros** aplica perfis reutilizáveis; **Histórico** reabre entradas e catálogo original da simulação. Recalcular utiliza as regras atuais; buscas e comparações são executadas novamente.
+A navegação é **Calcular / Meus produtos / Configurações**. O modo simples mostra **Impressão → Custos → Venda → Resultado**; o modo avançado usa os mesmos dados e cálculos.
 
-Os valores iniciais são exemplos editáveis. Um novo cenário usa a **data local do computador**, sem mudar datas de históricos reabertos. Moeda aceita `19,90` ou `19.90` e colagem como `R$ 1.234,56`; duração aceita `hh:mm:ss` ou horas decimais. Campos mantêm strings decimais no motor, com validação sem arredondar entradas inválidas. Alterações sinalizam resultado desatualizado. Não duplique frete ou publicidade.
+1. **Importar impressão 3D** permite selecionar ou arrastar uma placa fatiada Bambu Studio/OrcaSlicer (`.3mf`, inclusive `.gcode.3mf`) ou G-code textual compatível. Confira a origem, placa, impressora, materiais e ausências antes de **Usar esta placa**. **Informar peso e tempo manualmente** está disponível sem cadastro.
+2. Confira as peças físicas produzidas, peso e tempo do lote ou de uma peça. A quantidade vendida é independente; kits indicam quantas peças equivalentes compõem uma unidade comercial. Múltiplas placas são calculadas separadamente, sem consolidação automática.
+3. Informe o valor pago pela bobina e seu peso líquido real, ou o preço por kg. Nenhuma bobina recebe 1 kg presumido. Escolha custo completo por hora ou energia/desgaste separados; também é possível calcular só material. Mão de obra é opcional, inclusive zero consciente. Embalagens aceitam custo unitário ou pacote dividido pela quantidade.
+4. Para conhecer somente os custos, não é necessário informar preço, quantidade vendida ou loja. Para simular uma venda, informe preço ou meta de lucro/margem; venda direta dispensa Shopee. CPF/CNPJ e adesões não são presumidos. Respostas permanentes da loja podem ser salvas; frete e volume pertencem ao cenário.
+5. O recálculo é automático após uma pausa na digitação. Durante edição/erro, números antigos ficam ocultos. A busca retorna um mínimo matemático no intervalo, sem recomendação competitiva de mercado. **Para onde vai o dinheiro** e **Ver cálculo completo** explicam os valores e pendências.
+6. Dê um nome e salve produto/simulação em **Meus produtos**. Consulte o histórico com suas regras originais ou edite explicitamente uma nova revisão com regras atuais. É possível duplicar, confirmar exclusão para lixeira e recuperar. O rascunho real é salvo localmente e oferecido na próxima abertura.
 
-O resumo destaca preço, custos, tarifas calculáveis e lucro do pedido. Demonstrativo e configurações avançadas ficam expansíveis. **Aparência** permite claro, escuro ou sistema, com preferência local; navegação e formulários têm rótulos, foco visível, mensagens acessíveis e layout responsivo. A revisão visual e de teclado no desktop permanece pendente.
+O primeiro cálculo começa **sem custos fictícios**. **Explorar um exemplo fictício** é uma demonstração isolada que não pode ser gravada como dado real. **Configurar minha oficina**, em Configurações, é opcional e retomável; impressora e filamento podem ser salvos sem terminar o assistente.
+
+Novos cenários usam a **data local do computador**; históricos conservam a sua data. Moeda aceita `19,90` ou `19.90` e colagem como `R$ 1.234,56`; duração aceita `hh:mm:ss` ou horas decimais. Margem visual `20` significa 20%, com razão `0.20` no motor. Valores são strings decimais validadas; campos inválidos não são arredondados para parecer válidos.
+
+**Aparência** oferece claro, escuro ou sistema, com preferência local. Rótulos, foco visível e layout responsivo foram preparados; revisão visual, navegação real por teclado/zoom e conformidade integral de acessibilidade continuam pendentes. Veja a [matriz de requisitos e limitações da UX V2](docs/ux-v2.md).
 
 ## Catálogos versionados
 
@@ -21,7 +25,7 @@ Tabelas em `public/catalogs` registram início/fim de vigência (inclusive `null
 
 Quando não há vigência comprovada, uma referência documental anterior pode ser selecionada para simulação **provisória**, com aceitação explícita da premissa. Não é apresentada como tabela vigente ou recém-verificada. Antes da evidência, após um fim conhecido ou retirada documental, não se recupera silenciosamente uma tabela antiga.
 
-Em **Loja e tarifas → Consultar atualizações no GitHub**, o usuário consulta o canal público de revisão deste PR. A consulta valida esquema, limites e SHA-256, mostra as novas versões e exige **Aplicar publicação revisada**. Não há scraping ou atualização de valores em segundo plano. Falhas/offline preservam a cópia local; downgrades, reescrita/remoção de versões e revisões regressivas são rejeitados. Histórico conserva o catálogo usado. A CSP permite somente o host GitHub necessário a essa consulta, além do IPC local.
+Em **Configurações → Consultar atualizações no GitHub**, o usuário consulta o canal público de revisão deste PR. A consulta valida esquema, limites e SHA-256, mostra as novas versões e exige **Aplicar publicação revisada**. Não há scraping ou atualização de valores em segundo plano. Falhas/offline preservam a cópia local; downgrades, reescrita/remoção de versões e revisões regressivas são rejeitados. Histórico conserva o catálogo usado. A CSP permite somente o host GitHub necessário a essa consulta, além do IPC local.
 
 O canal está na branch de desenvolvimento; não é uma release pública. A confiança depende do repositório/HTTPS e da revisão documental do mantenedor: hashes detectam corrupção, não constituem assinatura digital independente. [Política, limites e relatório da revisão](docs/tariffs-and-ux.md).
 
@@ -38,9 +42,9 @@ Na faixa regular, R$ 19,90 gera R$ 3,98 + R$ 4,50 = **R$ 8,48 de comissão bási
 
 ## Arquivos e dados locais
 
-O importador lê estimativas declaradas, sem fatiar geometria, executar G-code ou converter comprimento em massa por densidade presumida. Um 3MF geométrico pode não trazer peso/tempo/quantidade: use **Preparar preenchimento manual**. Algumas contagens vêm de instâncias do modelo e precisam corresponder a peças comerciais equivalentes. Placas e materiais são separados. Limites: 3MF 100 MB, G-code textual 20 MB, metadados XML/JSON 2 MB por entrada, 32 materiais. ZIP64, arquivos criptografados e G-code binário não são suportados. [Formato e limitações](docs/imports-and-storage.md).
+O importador lê estimativas declaradas, sem fatiar geometria, executar G-code ou converter comprimento em massa por densidade presumida. Um 3MF geométrico pode não trazer peso/tempo/quantidade: use **Informar os dados manualmente**. Algumas contagens vêm de instâncias do modelo e precisam corresponder a peças comerciais equivalentes. Placas e materiais são separados. Limites: 3MF 100 MB, G-code textual 20 MB, metadados XML/JSON 2 MB por entrada, 32 materiais. ZIP64, arquivos criptografados e G-code binário não são suportados. [Formato e limitações](docs/imports-and-storage.md).
 
-Cadastros usam **IndexedDB local**, sem dependência nativa adicional. São próprios da origem e do perfil do aplicativo: desenvolvimento e desktop não compartilham automaticamente os dados. Exporte o **backup JSON** antes de limpar dados, trocar de instalação ou desinstalar. Importações de backup são validadas e transacionais; IDs iguais são substituídos, outros registros são mantidos. Não há sincronização, criptografia própria ou cópia de segurança automática. Um arquivo importado não fica armazenado integralmente no histórico.
+Cadastros usam **IndexedDB local**, sem dependência nativa adicional. São próprios da origem e do perfil do aplicativo: desenvolvimento e desktop não compartilham automaticamente os dados. Exporte o **backup JSON** antes de limpar dados, trocar de instalação ou desinstalar. Backup v2 inclui a lixeira e continua lendo v1. Importações são validadas e transacionais; conflitos de ID com conteúdo diferente geram cópias e preservam os vínculos, sem sobrescrever os dados existentes. Rascunho, progresso da oficina, tema e cache público não entram no backup; perfis e snapshots financeiros entram. Não há sincronização, criptografia própria ou cópia de segurança automática. Um arquivo importado não fica armazenado integralmente no histórico.
 
 ## Desenvolvimento e validação
 
@@ -67,4 +71,4 @@ GitHub Actions executa validação leve em PR. Instalador Windows é opcional: e
 - `src-tauri`: shell e empacotamento Windows.
 - `tests`: regressões financeiras, importadores e IndexedDB em Node.
 
-[Revisão atual: tarifas e UX](docs/tariffs-and-ux.md) · [Integração anterior](docs/integrated-v01.md) · [Arquitetura](docs/architecture.md) · [Referências e licenças](docs/references.md).
+[Revisão atual: experiência UX V2 e matriz](docs/ux-v2.md) · [Tarifas e UX anterior](docs/tariffs-and-ux.md) · [Integração anterior](docs/integrated-v01.md) · [Arquitetura](docs/architecture.md) · [Referências e licenças](docs/references.md).

@@ -1,5 +1,7 @@
 # Tarifas versionadas e revisão de UX — V0.1
 
+Relatório histórico desta etapa. Para a experiência e a matriz de requisitos atuais, consulte [UX V2](ux-v2.md).
+
 Entrega no PR #1, branch `feat/pricing-engine-v01`, sem merge, release ou build Windows. Esta etapa usa somente arquivos e terminal não interativo; não abriu navegador, aplicativo, instalador ou automação gráfica.
 
 ## Revisão documental

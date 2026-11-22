@@ -1,5 +1,6 @@
 import { cash, D, date, money, quantity } from './decimal';
 import { calculateManufacturing } from './manufacturing';
+import { calculatePackaging } from './packaging';
 import { calculateFees } from './rules';
 import type { PricingResult, SaleInput, TariffCatalog } from './types';
 
@@ -11,7 +12,7 @@ export function calculatePricing(input: SaleInput, catalog: TariffCatalog): Pric
   if (discount.gt(gross)) throw new Error('Desconto não pode superar a receita bruta.');
   const net = gross.minus(discount);
   const manufacturing = calculateManufacturing(input.manufacturing, input.quantity);
-  const packaging = money(input.packagingPerUnit).mul(input.quantity).plus(money(input.packagingPerOrder));
+  const packaging = new D(calculatePackaging(input));
   const shipping = money(input.sellerShipping, 'frete líquido efetivamente suportado pelo vendedor');
   const other = money(input.otherOperatingCosts, 'outros custos operacionais');
   const costs = new D(manufacturing.total).plus(packaging).plus(other);

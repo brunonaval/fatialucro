@@ -10,7 +10,7 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [{ "title": "FatiaLucro", "width": 1120, "height": 820, "minWidth": 640, "minHeight": 480 }],
+    "windows": [{ "title": "FatiaLucro", "width": 1120, "height": 820, "minWidth": 640, "minHeight": 480, "dragDropEnabled": false }],
     "security": {
       "csp": "default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost https://raw.githubusercontent.com",
       "devCsp": "default-src 'self'; script-src 'self' 'unsafe-inline'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost ws://127.0.0.1:1420 https://raw.githubusercontent.com"

@@ -1,5 +1,7 @@
 # Arquitetura 0.1
 
+A composição atual da experiência, os estados de recálculo e a matriz de requisitos estão em [UX V2](ux-v2.md). O contrato abaixo permanece compartilhado.
+
 O núcleo TypeScript em `src/engine` é síncrono, determinístico e independente de React, Tauri, rede ou relógio do sistema. Ele recebe a data e o catálogo explicitamente. O adaptador Shopee em `src/marketplaces/shopee` não interfere na fabricação.
 
 ## Contrato financeiro
@@ -7,6 +9,7 @@ O núcleo TypeScript em `src/engine` é síncrono, determinístico e independent
 - Moeda, percentuais, medidas e tempo entram como **strings decimais**. `number` é reservado a contagens inteiras limitadas e índices. Entradas monetárias numéricas são rejeitadas em runtime.
 - `decimal.js` usa uma configuração isolada de 60 algarismos; não há conversão monetária para `Number`. Valores externos são limitados a 18 algarismos inteiros e 12 fracionários; moeda é limitada a centavos.
 - Fabricação: filamento = gramas / 1000 × R$/kg; máquina = horas × custo completo/h **ou**, exclusivamente, energia + manutenção + depreciação. Energia = watts / 1000 × horas × R$/kWh. Trabalho manual = minutos / 60 × R$/h, admitindo zero.
+- Compra de bobina opcional usa gramas × valor pago / peso líquido real; kg equivalente é apresentação. Embalagem comprada em pacote usa preço × unidades vendidas / unidades compradas, arredondando o total. `partsPerUnit` opcional representa peças equivalentes por unidade comercial; não multiplica a incidência de tarifas por item. Entradas antigas sem essas propriedades preservam suas fórmulas.
 - Consumíveis e reserva de falhas são valores explícitos por peça. A reserva é estimativa do vendedor, não tarifa nem modelo estatístico de rendimento. Cálculo por taxa observada de falha fica para outra etapa.
 - Sem `basis`, o contrato anterior continua por unidade: cada componente é arredondado e multiplicado pela quantidade vendida. Com `basis = batch`, peso, tempo e trabalho descrevem o lote: arredonda-se o custo de cada componente do lote, divide-se pelas peças produzidas e multiplica-se pelas unidades vendidas antes de arredondar o total do pedido. Frações do rateio não são perdidas multiplicando o unitário exibido. Consumíveis/reserva continuam por peça; embalagem individual e por pedido são despesas independentes. Até 32 materiais podem ter massas e preços por kg próprios.
 - Receita após desconto = preço unitário × quantidade − desconto total bancado pelo vendedor. Frete recebe somente o **custo líquido confirmado** após subsídios e pagamentos de terceiros. Não há subsídio hipotético somado como custo.
@@ -42,7 +45,7 @@ O núcleo permanece síncrono e testável. Na interface, cálculo e buscas receb
 
 ## Adaptadores e desktop
 
-React exibe os dados e envia strings normalizadas. O enquadramento começa vazio, exige CPF/CNPJ explícito e nunca usa CNPJ como fallback. As opções da conta Shopee começam como **não confirmadas**. A comissão básica aparece marcada e bloqueada para desativação; programas têm controles independentes. Premissas e personalizações ficam expansíveis. A venda direta sem marketplace é uma escolha explícita de canal, nunca fallback para regras desconhecidas. Alterações no formulário marcam o resultado anterior como desatualizado.
+React exibe os dados e envia strings normalizadas. O enquadramento começa vazio, exige CPF/CNPJ explícito e nunca usa CNPJ como fallback. As opções da conta Shopee começam como **não confirmadas**. A comissão básica aparece marcada e bloqueada para desativação; programas têm controles independentes. Premissas e personalizações ficam expansíveis. A venda direta sem marketplace é uma escolha explícita de canal, nunca fallback para regras desconhecidas. Alterações financeiras ocultam o resultado anterior, agendam recálculo com debounce e cancelam tarefas antigas. Erros não publicam valores anteriores como atuais.
 
 Loja salva é aplicada na próxima abertura; frete não é confirmação persistente e o volume diário antigo volta a ficar desconhecido. Componentes de fabricação, preço, resumo, campos e catálogo foram separados. Tokens CSS implementam claro/escuro/sistema e estados; o tema fica no IndexedDB. Campos formatam valores sem converter moeda em `Number`; a porcentagem visual é convertida para razão somente onde o núcleo exige razão. O cenário inicial usa componentes de data locais, preservando datas do histórico.
 
@@ -50,7 +53,7 @@ Loja salva é aplicada na próxima abertura; frete não é confirmação persist
 
 O frete de `sellerShipping` representa valor líquido **debitado no repasse**. Frete pago externamente entra em `otherOperatingCosts`, uma única vez; não deve reduzir duas vezes o repasse e o lucro. Cupons e subsídios integralmente financiados pela plataforma não entram no desconto pago pelo vendedor.
 
-Tauri 2 empacota a interface e não expõe comandos Rust, permissões de filesystem, shell ou HTTP. CSP restringe scripts e conexões, permitindo workers da própria origem. Não há servidor de aplicação, login, IA, atualização online de tarifas ou telemetria. Links de fontes são referências consultáveis por iniciativa do usuário. Arquivos são selecionados pelo próprio usuário na interface; a leitura ocorre em memória.
+Tauri 2 empacota a interface e não expõe comandos Rust, permissões de filesystem, shell ou HTTP. CSP restringe scripts e conexões, permitindo workers da própria origem. Não há servidor de aplicação, login, IA, atualização automática de tarifas ou telemetria; a consulta pública é iniciada explicitamente. Links de fontes são referências consultáveis por iniciativa do usuário. Arquivos são selecionados pelo próprio usuário na interface; a leitura ocorre em memória.
 
 `src/app` compõe o cenário a partir de um formulário controlado e serializável, sem transferir regras Shopee para componentes visuais. O IndexedDB guarda cadastros e snapshots localmente, com importação/exportação JSON validada e transacional. A escolha atende à persistência sem adicionar dependências Rust/permissões nativas. Dados dependem da origem/perfil do WebView; backup é explícito. `src/importers` lê apenas metadados limitados, mantém ausência como `null` e exige preço manual por material. Veja [importação e armazenamento](imports-and-storage.md).
 

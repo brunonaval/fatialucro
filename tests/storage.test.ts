@@ -49,7 +49,7 @@ describe('IndexedDB e backup local sem navegador', () => {
     expect((await repository.list()).map(value => value.id)).toEqual(['existing']);
   });
   it('recusa versão desconhecida, IDs repetidos, campos falsos e chaves perigosas', () => {
-    expect(() => decodeBackup('{"version":2,"entries":[]}')).toThrow('versão');
+    expect(() => decodeBackup('{"version":99,"entries":[]}')).toThrow('versão');
     expect(() => decodeBackup(JSON.stringify({ version: 1, entries: [entry(), entry()] }))).toThrow('duplicados');
     expect(() => decodeBackup('{"version":1,"entries":[],"__proto__":{"x":1}}')).toThrow('Chave');
     expect(() => decodeBackup(JSON.stringify({ version: 1, entries: [{ ...entry(), kind: 'simulation' }] }))).toThrow('cópia');

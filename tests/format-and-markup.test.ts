@@ -31,7 +31,7 @@ describe('formatação decimal de campos e estrutura acessível sem navegador', 
   });
   it('estrutura principal tem navegação, tema e link de salto; IDs são únicos', () => {
     const html = renderToStaticMarkup(createElement(App));
-    for (const label of ['Pular para o conteúdo', 'Loja e tarifas', 'Aparência', 'Resumo financeiro']) expect(html).toContain(label);
+    for (const label of ['Pular para o conteúdo', 'Calcular', 'Meus produtos', 'Configurações', 'Aparência', 'Importar impressão 3D']) expect(html).toContain(label);
     expect(html).toContain('aria-current="page"'); const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(match => match[1]); expect(new Set(ids).size).toBe(ids.length);
   });
   it('resumo distingue ausência, custo parcial e prejuízo estimado', () => {

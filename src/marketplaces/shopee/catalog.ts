@@ -11,6 +11,7 @@ export type Participation = 'inactive' | 'active' | 'unknown';
 export interface ShopeeContext {
   seller: 'CPF' | 'CNPJ' | null;
   ordersLast90Days: number | null;
+  volumeStatement?: { relation: 'above' | 'below' | 'equal' | 'unknown'; threshold: number };
   returnsProtection: 'inactive' | 'trial' | 'billable' | 'unknown';
   highlightCampaign: Participation;
   adsEasy: Participation;
@@ -68,6 +69,8 @@ export function createShopeeCatalog(context: ShopeeContext, unitPrice: string, s
   if (context.ordersLast90Days !== null && (!Number.isSafeInteger(context.ordersLast90Days) || context.ordersLast90Days < 0)) {
     throw new Error('Pedidos em 90 dias deve ser inteiro não negativo ou desconhecido.');
   }
+  if (context.volumeStatement && (!['above', 'below', 'equal', 'unknown'].includes(context.volumeStatement.relation) || !Number.isSafeInteger(context.volumeStatement.threshold) || context.volumeStatement.threshold < (context.volumeStatement.relation === 'unknown' ? 0 : 1))) throw new Error('Condição de volume declarada inválida.');
+  const volume = context.ordersLast90Days === null ? context.volumeStatement?.threshold === table.cpf.volumeThreshold ? context.volumeStatement.relation : 'unknown' : context.ordersLast90Days > table.cpf.volumeThreshold ? 'above' : context.ordersLast90Days === table.cpf.volumeThreshold ? 'equal' : 'below';
   const rules: FeeRule[] = [];
   const pending: Pending[] = [];
   const add = (id: string, name: string, formula: FeeRule['formula'], evidence: Evidence, options: Partial<FeeRule> = {}) => {
@@ -105,13 +108,13 @@ export function createShopeeCatalog(context: ShopeeContext, unitPrice: string, s
     add('shopee:transaction', 'Transação: componente incluído', null, sources.commission);
   }
   if (context.seller === 'CPF') {
-    if (context.ordersLast90Days === null) pending.push({ id: 'shopee:cpf-volume', message: 'Informe os pedidos em 90 dias para avaliar o adicional CPF ou forneça explicitamente seu valor personalizado.', manualRuleIds: ['shopee:cpf-extra'] });
-    else if (context.ordersLast90Days === table.cpf.volumeThreshold && table.cpf.thresholdInclusive === null) pending.push({ id: 'shopee:cpf-450', message: `Exatamente ${table.cpf.volumeThreshold} pedidos: incidência do adicional CPF não esclarecida nesta versão.`, manualRuleIds: ['shopee:cpf-extra'] });
-    else if ((context.ordersLast90Days > table.cpf.volumeThreshold || (table.cpf.thresholdInclusive === true && context.ordersLast90Days === table.cpf.volumeThreshold)) && !cpfLow) {
+    if (volume === 'unknown') pending.push({ id: 'shopee:cpf-volume', message: 'Confirme se o volume em 90 dias está acima, abaixo ou exatamente no limite da tabela. Você encontra os pedidos na Central do Vendedor. Sem confirmação, o adicional CPF continua desconhecido.', manualRuleIds: ['shopee:cpf-extra'] });
+    else if (volume === 'equal' && table.cpf.thresholdInclusive === null) pending.push({ id: 'shopee:cpf-450', message: `Exatamente ${table.cpf.volumeThreshold} pedidos: incidência do adicional CPF não esclarecida nesta versão.`, manualRuleIds: ['shopee:cpf-extra'] });
+    else if ((volume === 'above' || (table.cpf.thresholdInclusive === true && volume === 'equal')) && !cpfLow) {
       add('shopee:cpf-extra', 'Adicional CPF de alto volume', { kind: 'fixed', amount: table.cpf.extra }, sources.cpf,
         { requirement: 'conditional', conditions: [{ key: 'isCpf', equals: true }] });
     }
-    if ((cpfLow || context.ordersLast90Days === null || (context.ordersLast90Days === table.cpf.volumeThreshold && table.cpf.thresholdInclusive === null)) && !rules.some(rule => rule.id === 'shopee:cpf-extra')) {
+    if ((cpfLow || volume === 'unknown' || (volume === 'equal' && table.cpf.thresholdInclusive === null)) && !rules.some(rule => rule.id === 'shopee:cpf-extra')) {
       add('shopee:cpf-extra', 'Adicional CPF: incidência ou valor não determinado', null, sources.cpf,
         { requirement: 'conditional', conditions: [{ key: 'isCpf', equals: true }] });
     }
@@ -182,5 +185,6 @@ export function shopeeFacts(context: ShopeeContext) {
     adsEasyActive: context.adsEasy === 'active',
     affiliatesActive: context.affiliates === 'active',
     cashAdvanceActive: context.cashAdvance === 'active',
+    ...(context.volumeStatement ? { cpfVolumeStatement: `${context.volumeStatement.threshold}:${context.volumeStatement.relation}` } : {}),
   };
 }

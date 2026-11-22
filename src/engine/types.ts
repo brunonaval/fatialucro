@@ -75,7 +75,9 @@ export interface ManufacturingInput {
   // Existing callers keep per-unit semantics. Batch totals are allocated explicitly.
   basis?: 'unit' | 'batch';
   piecesPerBatch?: number;
-  materials?: readonly { id: string; name: string; grams: string; pricePerKg: string }[];
+  materials?: readonly { id: string; name: string; grams: string; pricePerKg: string; purchase?: { amount: string; netGrams: string } }[];
+  filamentPurchase?: { amount: string; netGrams: string };
+  partsPerUnit?: number;
   grams: string;
   filamentPerKg: string;
   printHours: string;
@@ -107,6 +109,7 @@ export interface SaleInput {
   manufacturing: ManufacturingInput;
   packagingPerUnit: string;
   packagingPerOrder: string;
+  packagingPurchase?: { amount: string; units: number };
   sellerDiscount: string;
   sellerShipping: string;
   otherOperatingCosts: string;

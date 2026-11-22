@@ -10,22 +10,32 @@ export function calculateManufacturing(input: ManufacturingInput, count: number)
   const pieces = batch ? input.piecesPerBatch : 1;
   if (pieces === undefined) throw new Error('Informe a quantidade de peças produzidas no lote.');
   quantity(pieces);
+  const parts = input.partsPerUnit ?? 1;
+  quantity(parts);
   const hours = decimal(input.printHours, 'horas de impressão');
   const lines: CostLine[] = [];
   const add = (id: string, name: string, formula: string, raw: Dec, alreadyPerUnit = false) => {
     const allocate = batch && !alreadyPerUnit;
-    const allocated = allocate ? new D(cash(raw)).div(pieces) : raw;
+    const physical = allocate ? new D(cash(raw)).div(pieces) : raw;
+    const allocated = parts === 1 ? physical : (allocate ? physical : new D(cash(physical))).mul(parts);
     const perUnit = cash(allocated);
-    lines.push({ id, name, formula: allocate ? `${formula}; custo do lote arredondado / ${pieces} peças` : formula,
+    lines.push({ id, name, formula: `${allocate ? `${formula}; custo do lote arredondado / ${pieces} peças` : formula}${parts > 1 ? `; ${parts} peças por kit comercial` : ''}`,
       rawPerUnit: allocated.toFixed(), perUnit, quantity: count,
       total: cash((allocate ? allocated : new D(perUnit)).mul(count)),
       ...(allocate ? { allocation: { piecesPerBatch: pieces, roundedBatchCost: cash(raw) } } : {}),
     });
   };
+  const material = (id: string, name: string, grams: string, pricePerKg: string, purchase?: { amount: string; netGrams: string }) => {
+    if (purchase) {
+      const net = decimal(purchase.netGrams, 'peso líquido da bobina');
+      if (net.isZero()) throw new Error('Peso líquido da bobina precisa ser maior que zero.');
+      add(id, name, `${grams} g × R$${purchase.amount} / ${purchase.netGrams} g comprados`, decimal(grams).mul(money(purchase.amount)).div(net));
+    } else add(id, name, 'gramas / 1000 × preço por kg', decimal(grams).div(1000).mul(money(pricePerKg)));
+  };
   if (input.materials !== undefined) {
     if (!input.materials.length || input.materials.length > 32 || new Set(input.materials.map(material => material.id)).size !== input.materials.length) throw new Error('Informe entre 1 e 32 materiais com identificadores únicos.');
-    for (const material of input.materials) add(`material:${material.id}`, `Filamento — ${material.name}`, 'gramas / 1000 × preço por kg', decimal(material.grams).div(1000).mul(money(material.pricePerKg)));
-  } else add('material', 'Filamento', 'gramas / 1000 × preço por kg', decimal(input.grams).div(1000).mul(money(input.filamentPerKg)));
+    for (const item of input.materials) material(`material:${item.id}`, `Filamento — ${item.name}`, item.grams, item.pricePerKg, item.purchase);
+  } else material('material', 'Filamento', input.grams, input.filamentPerKg, input.filamentPurchase);
   if (input.machine.mode === 'all-in') {
     add('machine', 'Máquina (custo completo)', 'horas × custo completo por hora', hours.mul(decimal(input.machine.perHour)));
   } else {

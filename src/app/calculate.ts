@@ -18,7 +18,7 @@ export function calculateWorkspace(draft: CalculatorDraft, tables: readonly Shop
       operation === 'margin' ? { kind: 'margin', ratio: numeric(text(draft, 'targetMargin'), 'Margem desejada') } : { kind: 'profit', amount: parseBrazilianMoney(text(draft, 'targetProfit')) }, range);
   } else if (operation === 'compare') comparison = comparePrices(input, catalogAt, text(draft, 'comparison').split(';').map(value => parseBrazilianMoney(value.trim())));
   else if (operation !== 'direct') throw new Error('Operação inválida.');
-  const production = calculateManufacturing(input.manufacturing, input.manufacturing.basis === 'batch' ? input.manufacturing.piecesPerBatch! : 1);
+  const production = calculateManufacturing({ ...input.manufacturing, ...(input.manufacturing.partsPerUnit === undefined ? {} : { partsPerUnit: 1 }) }, input.manufacturing.basis === 'batch' ? input.manufacturing.piecesPerBatch! : 1);
   return { input, catalog, result, production, expenses: expenseBreakdown(draft), solution, comparison };
 }
 export type CalculationOutput = ReturnType<typeof calculateWorkspace>;

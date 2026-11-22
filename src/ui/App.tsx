@@ -1,182 +1,181 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { calculateManufacturing, calculatePricing, financialAlerts } from '../engine';
-import { defaultDraft, expenseBreakdown, numeric, restoreProfile, text } from '../app/model';
-import type { CalculatorDraft, SavedKind } from '../app/model';
-import type { CalculationOutput } from '../app/calculate';
+import { newCalculationDraft, exampleDraft, withExperience, applyProfile, calculationSignature } from '../app/experience';
+import { text, validateDraft } from '../app/model';
+import type { CalculatorDraft } from '../app/model';
 import { LocalRepository } from '../app/storage';
 import type { SavedEntry } from '../app/storage';
-import { Check, Field, FormContext, Input, Select } from './Fields';
-import { currency, ResultView } from './ResultView';
-import { ShopeeFields } from './ShopeeFields';
-import { PrintImport } from './PrintImport';
-import { bundledManifest, bundledPackage, bundledTables } from '../marketplaces/catalogs/bundled';
-import { loadTrustedPackage } from '../marketplaces/catalogs/update';
-import { catalogIndicator } from '../marketplaces/catalogs/select';
-import type { CatalogPackage, ValidatedPackage } from '../marketplaces/catalogs/types';
+import { recordsForResult } from '../app/records';
+import type { EditingContext } from '../app/records';
+import { applyRecurringCosts, validateProfile, workshopDefaults, workshopRecords } from '../app/workshop';
 import { applySavedStore, isTheme } from '../app/preferences';
 import type { Theme } from '../app/preferences';
+import { bundledManifest, bundledPackage, bundledTables } from '../marketplaces/catalogs/bundled';
+import { loadTrustedPackage } from '../marketplaces/catalogs/update';
+import type { CatalogPackage, ValidatedPackage } from '../marketplaces/catalogs/types';
+import { FormContext } from './Fields';
+import { ExperienceContext } from './ExperienceContext';
+import { PrintImport } from './PrintImport';
+import { PrintStep } from './PrintStep';
+import { FilamentFields, OptionalCosts, PrinterFields } from './CostFields';
+import { SaleStep } from './SaleStep';
+import { ExperienceResult } from './ExperienceResult';
+import { ProductLibrary } from './ProductLibrary';
+import { WorkshopWizard } from './WorkshopWizard';
+import type { WorkshopProgress } from './WorkshopWizard';
 import { CatalogManager } from './CatalogManager';
-import { FinancialSummary } from './FinancialSummary';
-import { ProductionFields } from './ProductionFields';
-import { PriceFields } from './PriceFields';
-import { ProfileSelect, savedLabels as labels } from './ProfileSelect';
+import { BackupPanel } from './BackupPanel';
+import { useAutomaticCalculation } from './useAutomaticCalculation';
+import { savedLabels } from './ProfileSelect';
 import './style.css';
 
+type Page = 'calculate' | 'products' | 'settings';
+const stages = [['print', 'Impressão'], ['costs', 'Custos'], ['sale', 'Venda'], ['result', 'Resultado']] as const;
 
 export function App() {
-  const [draft, setDraft] = useState(() => defaultDraft()); const [output, setOutput] = useState<CalculationOutput | null>(null);
-  const [stale, setStale] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
-  const [theme, setTheme] = useState<Theme>('system'); const [ready, setReady] = useState(false);
-  const [activeCatalog, setActiveCatalog] = useState<ValidatedPackage>({ manifest: bundledManifest, tables: bundledTables, package: bundledPackage });
-  const [message, setMessage] = useState(''); const [entries, setEntries] = useState<SavedEntry[]>([]);
-  const [tab, setTab] = useState('calculator'); const [saveKind, setSaveKind] = useState<SavedKind>('product'); const [saveName, setSaveName] = useState('');
-  const repository = useRef<LocalRepository | null>(null); const worker = useRef<Worker | null>(null); const revision = useRef(0);
+  const [draft, setDraft] = useState(() => newCalculationDraft()); const current = withExperience(draft); const ux = current.ux;
+  const [page, setPage] = useState<Page>('calculate'); const [ready, setReady] = useState(false); const [entries, setEntries] = useState<SavedEntry[]>([]);
+  const [theme, setTheme] = useState<Theme>('system'); const [notice, setNotice] = useState(''); const [busy, setBusy] = useState(false);
+  const [recovery, setRecovery] = useState<CalculatorDraft | null>(null); const [draftStatus, setDraftStatus] = useState(''); const [editing, setEditing] = useState<EditingContext>({}); const [savedKey, setSavedKey] = useState('');
+  const [workshop, setWorkshop] = useState<WorkshopProgress | null>(null); const [showWorkshop, setShowWorkshop] = useState(false); const [profileDelete, setProfileDelete] = useState<SavedEntry | null>(null);
+  const [catalog, setCatalog] = useState<ValidatedPackage>({ manifest: bundledManifest, tables: bundledTables, package: bundledPackage });
+  const repository = useRef<LocalRepository | null>(null); const workingDraft = useRef(draft); workingDraft.current = draft;
+  const automatic = useAutomaticCalculation(current, catalog.tables, ready && page === 'calculate' && ux.entry !== 'none');
+  const realEntries = entries.filter(entry => !entry.deletedAt); const example = ux.entry === 'example';
+  const resultKey = `${calculationSignature(current)}|${text(current, 'productName')}`;
+
   useEffect(() => {
-    if (!globalThis.indexedDB) { setMessage('Armazenamento local indisponível. Cálculo disponível, sem salvar dados ou preferências.'); setReady(true); return; }
-    const repo = new LocalRepository(globalThis.indexedDB); repository.current = repo;
-    let active = true;
+    if (!globalThis.indexedDB) { setNotice('Armazenamento local indisponível. Você pode calcular, mas dados não serão salvos nesta sessão.'); setReady(true); return; }
+    const repo = new LocalRepository(globalThis.indexedDB); repository.current = repo; let active = true;
     async function initialize() {
-      const results = await Promise.allSettled([repo.list(), repo.getSetting('theme'), repo.getSetting('catalog-active')]);
+      const values = await Promise.allSettled([repo.list(true), repo.getSetting('theme'), repo.getSetting('catalog-active'), repo.getSetting('draft-v2'), repo.getSetting('workshop-v2'), repo.getSetting('experience-mode')]);
       if (!active) return;
-      const [list, preference, cache] = results;
-      if (list.status === 'fulfilled') {
-        setEntries(list.value); const shop = list.value.find(entry => entry.id === 'store-shopee');
-        if (shop) setDraft(current => applySavedStore(current, shop.draft, shop.updatedAt));
-      } else setMessage('Não foi possível ler os cadastros locais. Nenhum dado foi substituído.');
-      if (preference.status === 'fulfilled' && isTheme(preference.value)) setTheme(preference.value);
-      else if (preference.status === 'rejected') setMessage('Não foi possível ler as preferências de aparência.');
+      const [records, appearance, cache, savedDraft, savedWorkshop, mode] = values;
+      if (records.status === 'fulfilled') { setEntries(records.value); setDraft(workshopDefaults(newCalculationDraft(), records.value)); }
+      else setNotice('Não foi possível ler todos os cadastros. Nenhum registro foi apagado ou substituído.');
+      if (appearance.status === 'fulfilled' && isTheme(appearance.value)) setTheme(appearance.value);
+      else if (appearance.status === 'rejected') setNotice('A preferência de aparência não pôde ser lida.');
+      if (savedDraft.status === 'fulfilled' && savedDraft.value !== null) {
+        try { validateDraft(savedDraft.value); if (savedDraft.value.ux?.entry !== 'example') setRecovery(savedDraft.value); } catch { setNotice('O rascunho local não pôde ser validado. Os dados salvos não foram apagados.'); }
+      } else if (savedDraft.status === 'rejected') setNotice('Não foi possível ler o rascunho local.');
+      if (savedWorkshop.status === 'fulfilled' && savedWorkshop.value !== null) {
+        try { const value = savedWorkshop.value as WorkshopProgress; validateDraft(value.draft); if (!Number.isSafeInteger(value.step) || value.step < 0 || value.step > 3) throw new Error(); setWorkshop(value); } catch { setNotice('A configuração da oficina precisa ser conferida; seus produtos continuam preservados.'); }
+      } else if (savedWorkshop.status === 'rejected') setNotice('Não foi possível recuperar a etapa da oficina.');
+      if (mode.status === 'fulfilled' && (mode.value === 'simple' || mode.value === 'advanced')) setDraft(value => ({ ...value, ux: { ...withExperience(value).ux, mode: mode.value as 'simple' | 'advanced' } }));
+      else if (mode.status === 'rejected') setNotice('O modo de exibição não pôde ser recuperado.');
       if (cache.status === 'fulfilled' && cache.value !== null) {
-        try { const checked = await loadTrustedPackage(cache.value as CatalogPackage); if (active) setActiveCatalog(checked); }
-        catch { if (active) setMessage('Cache de tarifas inválido ou regressivo. Usando o catálogo incluído no aplicativo, sem apagar históricos.'); }
-      } else if (cache.status === 'rejected') setMessage('Cache indisponível. Usando o catálogo incluído no aplicativo.');
+        try { const valid = await loadTrustedPackage(cache.value as CatalogPackage); if (active) setCatalog(valid); } catch { if (active) setNotice('Cache de tarifas inválido. Usando o catálogo incluído no aplicativo, sem modificar históricos.'); }
+      } else if (cache.status === 'rejected') setNotice('Cache de tarifas indisponível. O catálogo incluído continua disponível offline.');
       if (active) setReady(true);
     }
-    void initialize();
-    return () => { active = false; repository.current = null; void repo.close(); };
+    void initialize(); return () => { active = false; repository.current = null; void repo.close().catch(() => {}); };
   }, []);
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
-  useEffect(() => () => { revision.current++; worker.current?.terminate(); }, []);
-  function change(next: CalculatorDraft) {
-    revision.current++; worker.current?.terminate(); worker.current = null; setBusy(false);
-    setDraft(next); setStale(output !== null); setError('');
+  useEffect(() => {
+    if (!ready || !repository.current || ux.entry === 'none' || example) return;
+    let active = true; const repo = repository.current; setDraftStatus('Alterações aguardando salvamento…');
+    const timer = setTimeout(() => { void repo.saveSetting('draft-v2', draft).then(() => { if (active) setDraftStatus('Rascunho salvo neste dispositivo'); }).catch(() => { if (active) setDraftStatus('Rascunho não salvo. Seus dados continuam no formulário.'); }); }, 700);
+    return () => { active = false; clearTimeout(timer); };
+  }, [draft, ready, ux.entry, example]);
+
+  function update(next: CalculatorDraft) { setDraft(withExperience(next)); }
+  function setField(name: string, value: string | boolean) { if (current.fields[name] !== value) update({ ...current, fields: { ...current.fields, [name]: value } }); }
+  function setStage(stage: typeof ux.stage) { update({ ...current, ux: { ...ux, stage } }); }
+  function repo() { if (!repository.current) throw new Error('Armazenamento local indisponível. Nada foi salvo.'); return repository.current; }
+  async function refresh() { setEntries(await repo().list(true)); }
+  async function mutate(action: () => Promise<void>, success: string): Promise<boolean> {
+    setBusy(true); setNotice(''); try { await action(); await refresh(); setNotice(success); return true; } catch (error) { setNotice(error instanceof Error ? error.message : 'Não foi possível salvar os dados.'); return false; } finally { setBusy(false); }
   }
-  function setField(name: string, value: string | boolean) { if (draft.fields[name] !== value) change({ ...draft, fields: { ...draft.fields, [name]: value } }); }
-  function submit(event: FormEvent) {
-    event.preventDefault(); if (!ready) { setError('Carregando seus dados locais. Aguarde um instante.'); return; } worker.current?.terminate(); const current = ++revision.current; setError(''); setBusy(true);
+  async function preserveDraft(): Promise<boolean> {
+    const value = workingDraft.current;
+    if (value.ux?.entry === 'none' || value.ux?.entry === 'example') return true;
+    if (!repository.current) return true;
+    try { await repository.current.saveSetting('draft-v2', value); setRecovery(value); return true; } catch { setNotice('Não foi possível preservar seu rascunho. O cálculo atual foi mantido.'); return false; }
+  }
+  async function startNew() {
+    if (!await preserveDraft()) return;
+    const fresh = workshopDefaults(newCalculationDraft(), realEntries); update({ ...fresh, ux: { ...withExperience(fresh).ux, mode: ux.mode } }); setEditing({}); setSavedKey(''); setPage('calculate'); setNotice('');
+  }
+  async function exploreExample() { if (!await preserveDraft()) return; update(exampleDraft()); setEditing({}); setSavedKey(''); setPage('calculate'); setNotice('Exemplo fictício isolado. Nenhum custo da sua oficina foi substituído.'); }
+  function useProfile(entry: SavedEntry, stage?: typeof ux.stage) {
+    if (!['printer', 'filament', 'production', 'marketplace'].includes(entry.kind)) return;
+    const next = entry.id === 'workshop-production' ? applyRecurringCosts(current, entry.draft) : entry.kind === 'marketplace' ? applySavedStore(current, entry.draft, entry.updatedAt) : applyProfile(current, entry.draft, entry.kind as 'printer' | 'filament' | 'production');
+    update(stage ? { ...next, ux: { ...withExperience(next).ux, stage } } : next); setNotice(`${savedLabels[entry.kind]} aplicado somente aos campos correspondentes.`);
+  }
+  async function editRecord(entry: SavedEntry, duplicate: boolean) {
+    if (!await preserveDraft()) return;
+    const loaded = withExperience(structuredClone(entry.draft)); update({ ...loaded, fields: { ...loaded.fields, productName: duplicate ? `${entry.name} — cópia` : entry.name }, ux: { ...loaded.ux, stage: entry.kind === 'product' ? 'print' : loaded.ux.intent === 'sale' ? 'sale' : 'costs' } });
+    const productId = entry.kind === 'product' ? entry.id : entry.productId;
+    setEditing(duplicate ? {} : { ...(productId ? { productId } : {}), ...(entry.kind === 'product' ? {} : { parentId: entry.id }) });
+    setSavedKey(''); setPage('calculate'); setNotice(`${duplicate ? 'Cópia independente em edição.' : 'Editando uma nova revisão.'} O registro salvo continua intacto; o recálculo usa as tarifas atualmente selecionadas. ${!entry.draft.ux ? 'Confira a origem e os custos deste registro anterior.' : ''}`);
+  }
+  async function saveProduct() {
+    if (example) { setNotice('Demonstração fictícia: comece seu próprio cálculo para salvar.'); return; }
+    const name = text(current, 'productName').trim(); if (!name) { setNotice('Informe um nome para guardar o produto.'); setStage('print'); return; }
+    const id = editing.productId ?? crypto.randomUUID();
+    if (entries.some(entry => entry.id === id && entry.deletedAt)) { setNotice('Este produto está na lixeira. Restaure ou duplique antes de salvar.'); return; }
+    if (await mutate(() => repo().save({ id, kind: 'product', name, updatedAt: new Date().toISOString(), draft: structuredClone(current) }), 'Produto salvo. Você pode continuar completando os dados.')) setEditing({ ...editing, productId: id });
+  }
+  async function saveResult() {
+    if (automatic.state.phase !== 'ready' || !automatic.state.output) { setNotice('Aguarde um resultado válido antes de salvar.'); return; }
     try {
-      const task = new Worker(new URL('../app/calculation-worker.ts', import.meta.url), { type: 'module' }); worker.current = task;
-      task.onmessage = (event: MessageEvent<{ output?: CalculationOutput; error?: string }>) => {
-        if (current !== revision.current) return;
-        setBusy(false); task.terminate(); worker.current = null;
-        if (event.data.output) { setOutput(event.data.output); setStale(false); }
-        else { setError(event.data.error ?? 'Não foi possível calcular.'); setStale(output !== null); }
-      };
-      task.onerror = () => { if (current === revision.current) { setBusy(false); setError('Falha no processamento local.'); setStale(output !== null); } task.terminate(); };
-      task.postMessage({ draft, tables: activeCatalog.tables });
-    } catch (problem) { setBusy(false); setError(String(problem)); }
+      const records = recordsForResult(current, automatic.state.output, entries, editing);
+      if (await mutate(() => repo().saveMany(records), 'Produto e simulação salvos. As versões anteriores foram preservadas.')) { setEditing({ productId: records[0]!.id, parentId: records[1]!.id }); setSavedKey(resultKey); }
+    } catch (error) { setNotice(error instanceof Error ? error.message : 'Confira o nome do produto.'); }
   }
-  async function storageAction(action: (repo: LocalRepository) => Promise<void>, success: string) {
-    setMessage('');
-    try {
-      const repo = repository.current; if (!repo) throw new Error('Armazenamento local indisponível. Nada foi salvo.');
-      await action(repo); setEntries(await repo.list()); setMessage(success);
-    } catch (problem) { setMessage(problem instanceof Error ? problem.message : 'Falha no armazenamento local.'); }
+  async function saveShop() {
+    if (!['CPF', 'CNPJ'].includes(text(current, 'seller'))) { setNotice('Responda se vende como CPF ou CNPJ antes de salvar a loja.'); return; }
+    await mutate(() => repo().save({ id: 'store-shopee', kind: 'marketplace', name: 'Minha loja Shopee', updatedAt: new Date().toISOString(), draft: structuredClone(current) }), 'Respostas permanentes salvas. Frete e volume continuam próprios do cenário.');
   }
-  async function save() {
-    const name = (saveName || text(draft, 'productName')).trim();
-    if (!name) { setMessage('Informe um nome para salvar.'); return; }
-    if (saveKind === 'simulation' && (!output || stale || busy)) { setMessage('Calcule com as entradas atuais antes de salvar a simulação.'); return; }
-    const entry: SavedEntry = { id: crypto.randomUUID(), kind: saveKind, name, updatedAt: new Date().toISOString(), draft: structuredClone(draft),
-      ...(saveKind === 'simulation' && output ? { snapshot: { input: output.input, catalog: output.catalog } } : {}) };
-    await storageAction(repo => repo.save(entry), `${labels[saveKind]} salvo neste dispositivo.`);
+  async function saveWorkshop(progress: WorkshopProgress) { await repo().saveSetting('workshop-v2', progress); setWorkshop(progress); }
+  async function applyWorkshop(progress: WorkshopProgress) {
+    const records = workshopRecords(progress.draft); await repo().saveMany(records); await saveWorkshop(progress); const all = await repo().list(true); setEntries(all);
+    update(workshopDefaults(current, all)); setNotice('Custos conhecidos da oficina aplicados. Etapas incompletas continuam no assistente para você retomar.');
   }
-  function reopen(entry: SavedEntry) {
-    try {
-      change(restoreProfile(draft, entry.draft, entry.kind)); setTab('calculator');
-      if (entry.snapshot) {
-        const manufacturing = entry.snapshot.input.manufacturing;
-        setOutput({ ...entry.snapshot, result: calculatePricing(entry.snapshot.input, entry.snapshot.catalog), production: calculateManufacturing(manufacturing, manufacturing.basis === 'batch' ? manufacturing.piecesPerBatch! : 1), expenses: expenseBreakdown(entry.draft), solution: null, comparison: [] }); setStale(false);
-        setMessage('Simulação reaberta com o catálogo original salvo. Recalcular usa as regras atuais; buscas e comparações precisam ser executadas novamente.');
-      } else setMessage(`${labels[entry.kind]} aplicado. Confira as entradas e calcule.`);
-    } catch (problem) { setMessage(String(problem)); }
+  async function saveProfile(value: CalculatorDraft, kind: 'printer' | 'filament') {
+    validateProfile(value, kind); const name = text(value, kind === 'printer' ? 'printerName' : 'materialName').trim() || (kind === 'printer' ? 'Minha impressora' : 'Meu filamento');
+    await repo().save({ id: crypto.randomUUID(), kind, name, updatedAt: new Date().toISOString(), draft: structuredClone(value) }); await refresh();
   }
-  async function backup() {
-    await storageAction(async repo => {
-      const blob = new Blob([await repo.export()], { type: 'application/json' }); const url = URL.createObjectURL(blob);
-      const link = document.createElement('a'); link.href = url; link.download = `fatialucro-backup-${new Date().toISOString().slice(0, 10)}.json`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-    }, 'Backup JSON preparado para salvar localmente.');
+  async function applyCatalog(next: ValidatedPackage) { await repo().activateCatalog(next.package); setCatalog(next); setSavedKey(''); }
+  function chooseTheme(value: string) { if (!isTheme(value)) return; setTheme(value); if (repository.current) void repository.current.setTheme(value).catch(() => setNotice('Tema aplicado nesta sessão, mas não foi possível salvar a preferência.')); }
+  function chooseMode() { const mode = ux.mode === 'simple' ? 'advanced' : 'simple'; update({ ...current, ux: { ...ux, mode } }); if (repository.current) void repository.current.saveSetting('experience-mode', mode).catch(() => setNotice('Modo alterado nesta sessão; preferência não foi salva.')); }
+  async function exportBackup() {
+    await mutate(async () => { const data = await repo().export(); const url = URL.createObjectURL(new Blob([data], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = `fatialucro-backup-${new Date().toISOString().slice(0, 10)}.json`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }, 'Backup local preparado. Guarde-o em um lugar privado.');
   }
-  async function importBackup(file: File | undefined) {
-    if (!file) return;
-    if (file.size > 12 * 1024 * 1024) { setMessage('Backup excede 12 MB.'); return; }
-    await storageAction(async repo => { await repo.import(await file.text()); }, 'Backup restaurado. Registros com o mesmo identificador foram atualizados.');
-  }
-  const shop = entries.find(entry => entry.id === 'store-shopee');
-  let tariffStatus: ReturnType<typeof catalogIndicator>;
-  try { tariffStatus = catalogIndicator(text(draft, 'date'), activeCatalog.tables); }
-  catch { tariffStatus = { title: 'Confira a data do cenário', detail: 'Informe uma data válida para selecionar a tabela.', tone: 'warning' }; }
-  async function saveStore() {
-    if (!['CPF', 'CNPJ'].includes(text(draft, 'seller'))) { setMessage('Selecione CPF ou CNPJ antes de salvar a loja.'); return; }
-    await storageAction(repo => repo.save({ id: 'store-shopee', kind: 'marketplace', name: 'Minha loja Shopee', updatedAt: new Date().toISOString(), draft: structuredClone(draft) }), 'Loja salva. Cadastro, adesões e convenções serão reutilizados; volume e frete continuam próprios de cada cenário.');
-  }
-  function newScenario() {
-    const initial = defaultDraft(); change(shop ? applySavedStore(initial, shop.draft, shop.updatedAt) : initial); setOutput(null); setStale(false); setTab('calculator'); setMessage('Novo cenário com a data local de hoje.');
-  }
-  async function applyCatalog(next: ValidatedPackage) {
-    if (!repository.current) throw new Error('Armazenamento local indisponível. O catálogo não foi aplicado.');
-    await repository.current.activateCatalog(next.package); setActiveCatalog(next); revision.current++; worker.current?.terminate(); setBusy(false); setStale(true);
-  }
-  function chooseTheme(value: string) {
-    if (!isTheme(value)) return; setTheme(value);
-    if (!repository.current) { setMessage('Tema aplicado nesta sessão; armazenamento indisponível.'); return; }
-    void repository.current.setTheme(value).catch(problem => setMessage(String(problem)));
-  }
-  let alerts: string[] = [];
-  if (output) { try { alerts = financialAlerts(output.result, numeric(text(draft, 'lowMargin'), 'Limite de margem')); } catch { alerts = ['Limite do alerta inválido.']; } }
-  return <FormContext value={{ draft, setField }}><main>
+  function submit(event: FormEvent) { event.preventDefault(); automatic.runNow(); setStage('result'); }
+  const show = (stage: typeof ux.stage) => ux.mode === 'advanced' || ux.stage === stage;
+  const stageIndex = stages.findIndex(([stage]) => stage === ux.stage);
+  return <FormContext value={{ draft: current, setField }}><ExperienceContext value={{ draft: current, update }}><main className="experience-app" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); setNotice("Solte o arquivo na área de importação ou use Selecionar arquivo."); }}>
     <a className="skip-link" href="#workspace-content">Pular para o conteúdo</a>
-    <header><div><span className="eyebrow">Da impressão ao preço, com clareza</span><h1>Fatia<span>Lucro</span></h1></div><div className="header-actions"><label className="theme-picker">Aparência<select value={theme} onChange={event => chooseTheme(event.target.value)}><option value="system">Sistema</option><option value="light">Claro</option><option value="dark">Escuro</option></select></label><button type="button" className="secondary" onClick={newScenario}>Novo cenário</button></div></header>
-    <nav aria-label="Navegação principal">{[['calculator', 'Calculadora'], ['library', 'Cadastros'], ['history', 'Histórico'], ['settings', 'Loja e tarifas']].map(([value, label]) => <button type="button" key={value} aria-current={tab === value ? 'page' : undefined} className={tab === value ? 'active' : 'secondary'} onClick={() => setTab(value!)}>{label}</button>)}</nav>
+    <header><div><span className="eyebrow">Impressão 3D · custos claros · dados locais</span><h1>Fatia<span>Lucro</span></h1></div><div className="header-actions"><label className="theme-picker">Aparência<select value={theme} onChange={event => chooseTheme(event.target.value)}><option value="system">Sistema</option><option value="light">Claro</option><option value="dark">Escuro</option></select></label><button type="button" className="secondary" onClick={() => { void startNew(); }} disabled={!ready}>Nova impressão</button></div></header>
+    <nav aria-label="Navegação principal">{([['calculate', 'Calcular'], ['products', 'Meus produtos'], ['settings', 'Configurações']] as const).map(([value, label]) => <button type="button" key={value} aria-current={page === value ? 'page' : undefined} className={page === value ? 'active' : 'secondary'} onClick={() => setPage(value)}>{label}</button>)}</nav>
     <div id="workspace-content" tabIndex={-1}>
-    {!ready && <p role="status" className="empty-state">Carregando seus dados locais…</p>}
-    {message && <p className="message" role="status">{message}</p>}
-    {tab === 'calculator' ? <div className="workspace"><form onSubmit={submit} noValidate>
-      <section><h2><b aria-hidden="true">1</b> Produto e impressão</h2><Input name="productName" label="Nome do produto" required={false} />
-        <p className="muted">Valores iniciais são exemplos editáveis. Confira os custos e as quantidades da sua impressão.</p>
-        <PrintImport draft={draft} onApply={change} />
-        <ProfileSelect kind="product" entries={entries} onApply={reopen} />
-      </section>
-      <ProductionFields entries={entries} change={change} reopen={reopen} onError={setError} />
-      <section id="marketplace"><h2><b aria-hidden="true">3</b> Canal e despesas da venda</h2><div className="fields"><Select name="marketplace" label="Onde será vendido?"><option value="direct">Venda direta</option><option value="shopee">Shopee Brasil</option></Select><Input name="date" type="date" label="Data do cenário" /><ProfileSelect kind="marketplace" entries={entries} onApply={reopen} /></div>
-        {draft.fields.marketplace === 'shopee' && <>
-          <div className="store-strip"><div><strong>{text(draft, 'seller') ? `Loja ${text(draft, 'seller')}` : 'Configure sua loja uma vez'}</strong><p>{shop ? `Preferências salvas em ${new Date(shop.updatedAt).toLocaleDateString('pt-BR')}. Confira mudanças de adesão.` : 'CPF/CNPJ e adesões ainda não foram salvos.'}</p></div><button type="button" className="secondary" onClick={() => setTab('settings')}>Configurar loja</button></div>
-          <div className={`tariff-status ${tariffStatus.tone}`} role="status"><strong>{tariffStatus.title}</strong><p>{tariffStatus.detail}</p></div>
-          <div className="fields">{draft.fields.seller === 'CPF' && <Input name="orders" label="Pedidos nos últimos 90 dias (vazio = desconhecido)" required={false} />}<Field name="shipping" label="Frete líquido debitado do repasse (R$/pedido)" /></div>
-          <Check name="shippingConfirmed">Conferi o frete líquido deste pedido, após subsídios e pagamentos do comprador.</Check>
-          <details><summary>Exceções e personalizações deste cenário</summary><ShopeeFields /></details>
+      {notice && <p className="message" role="status">{notice}</p>}{!ready && <p className="empty-state" role="status">Carregando seus dados locais…</p>}
+      {page === 'calculate' ? <>
+        {ux.entry === 'none' ? <section className="welcome"><span className="step-label">Comece sem cadastros obrigatórios</span><h2>Descubra o custo da sua impressão.<br />Depois, decida como vender.</h2><p>Importe uma placa fatiada ou informe os dados. Configurar sua oficina é opcional e pode ficar para depois.</p>
+          <PrintImport primary disabled={!ready} draft={current} onApply={update} />
+          <div className="start-alternatives"><button type="button" className="secondary" disabled={!ready} onClick={() => update({ ...current, ux: { ...ux, entry: 'manual', stage: 'print' } })}>Informar peso e tempo manualmente</button><button type="button" className="text-button" disabled={!ready} onClick={() => { void exploreExample(); }}>Explorar um exemplo fictício</button></div>
+          {recovery && <div className="recovery-card"><h3>Há um rascunho neste dispositivo</h3><p>{text(recovery, 'productName') || 'Impressão sem nome'} · a data e as entradas serão preservadas.</p><button type="button" className="secondary" onClick={() => { update(withExperience(recovery)); setRecovery(null); setEditing({}); setSavedKey(''); }}>Recuperar rascunho</button></div>}
+          <button type="button" className="text-button" onClick={() => { setPage('settings'); setShowWorkshop(true); }}>Configurar minha oficina (opcional)</button>
+        </section> : <>
+          {example && <div className="example-banner"><strong>Exemplo fictício</strong><span>Não são os custos da sua oficina. Não será salvo como dado real.</span><button type="button" className="secondary" onClick={() => { void startNew(); }}>Começar com meus dados</button></div>}
+          <div className="workspace-toolbar"><span className="draft-status" role="status">{example ? 'Demonstração isolada' : draftStatus || 'Seus dados ficam neste dispositivo'}</span><button type="button" className="text-button" aria-pressed={ux.mode === 'advanced'} onClick={chooseMode}>{ux.mode === 'simple' ? 'Abrir modo avançado' : 'Voltar ao modo simples'}</button>{!example && <button type="button" className="text-button" disabled={busy} onClick={() => { void saveProduct(); }}>Guardar produto sem esperar o cálculo</button>}</div>
+          <nav className="step-nav" aria-label="Etapas do cálculo">{stages.map(([stage, label], index) => <button type="button" key={stage} className="secondary" aria-current={ux.stage === stage ? 'step' : undefined} onClick={() => setStage(stage)}><span aria-hidden="true">{index + 1}</span>{label}{stage === 'sale' && ux.intent === 'cost' ? ' (opcional)' : ''}</button>)}</nav>
+          <form onSubmit={submit} noValidate>
+            {show('print') && <PrintStep />}
+            {show('costs') && <section id="costs-step"><div className="section-heading"><span className="step-label">Custos</span><h2>Quanto você gastou para produzir?</h2><p>Use seus valores ou escolha perfis salvos. Você pode calcular apenas material e energia.</p></div><FilamentFields entries={realEntries} onProfile={useProfile} /><PrinterFields entries={realEntries} onProfile={useProfile} /><OptionalCosts /></section>}
+            {show('sale') && <SaleStep tables={catalog.tables} onSaveShop={() => { void saveShop(); }} />}
+            {show('result') && <ExperienceResult tables={catalog.tables} state={automatic.state} onConfirm={() => setStage('sale')} onSave={() => { void saveResult(); }} saved={savedKey === resultKey} />}
+            {ux.mode === 'simple' && <div className="step-actions">{stageIndex > 0 && <button type="button" className="secondary" onClick={() => setStage(stages[stageIndex - 1]![0])}>← Voltar</button>}{stageIndex < 3 && <button type="button" onClick={() => setStage(stages[stageIndex + 1]![0])}>{ux.stage === 'sale' ? 'Ver resultado' : ux.stage === 'costs' && ux.intent === 'cost' ? 'Continuar: venda é opcional →' : 'Continuar →'}</button>}<button type="submit" className="text-button">Atualizar e ver resultado agora</button></div>}
+          </form>
+          <p className="automatic-note">O cálculo é atualizado automaticamente após uma pausa na digitação. Valores antigos ficam ocultos durante alterações ou erros.</p>
         </>}
-        <details><summary>Desconto, frete e outras despesas</summary><div className="fields"><Field name="discount" label="Desconto total pago pelo vendedor (R$/pedido)" />{draft.fields.marketplace === 'direct' && <Field name="shipping" label="Frete descontado do recebimento (R$/pedido)" />}<Field name="other" label="Outras despesas / tributos informados (R$/pedido)" /></div><p>Cupons pagos integralmente pela plataforma não são desconto do vendedor. Frete pago fora do repasse entra uma vez em outras despesas.</p>
-          <Check name="advertisingEnabled">Incluir publicidade convencional com custo apurado</Check>{draft.fields.advertisingEnabled === true && <Field name="advertising" label="Publicidade alocada a este pedido (R$)" />}<p>Publicidade informada integra outras despesas operacionais. Evite repetir valores de Ads Fácil ou créditos já incluídos.</p>
-        </details>
-      </section>
-      <PriceFields error={error} busy={busy || !ready} />
-    </form><aside className="result-column"><FinancialSummary output={output} stale={stale} busy={busy} />
-      {!!alerts.length && <div className="notice">{alerts.map(value => <p key={value}>{value}</p>)}</div>}
-      {output && <><details className="financial-details"><summary>Demonstrativo completo, tarifas e fontes</summary><ResultView result={output.result} solution={output.solution} stale={stale} catalog={output.catalog} expenses={output.expenses} /></details>{!!output.comparison.length && <section><h2>Comparação de preços</h2>{stale && <p className="notice">Comparação desatualizada. Recalcule.</p>}<div className="table-scroll"><table><thead><tr><th>Preço/un.</th><th>Tarifas calculáveis</th><th>Lucro/pedido</th><th>Situação</th></tr></thead><tbody>{output.comparison.map(row => <tr key={row.unitPrice}><td>{currency(row.unitPrice)}</td><td>{currency(row.result.knownMarketplaceFees)}</td><td>{currency(row.result.operatingProfit)}</td><td>{row.result.confidence === 'indeterminate' ? 'Indeterminado' : row.result.confidence === 'provisional' ? 'Provisório' : 'Calculado'}</td></tr>)}</tbody></table></div></section>}</>}
-    </aside></div> : tab === 'settings' ? <>
-      <section><h2>Sua loja Shopee</h2><p>Salve CPF/CNPJ, adesões e convenções uma vez. Essas escolhas representam sua loja; não alteram programas na plataforma. Dados de frete e volume precisam corresponder ao cenário.</p>
-        <ShopeeFields /><button type="button" onClick={() => { void saveStore(); }}>Salvar configuração da loja</button>
-        {shop && <p className="muted">Configuração salva em {new Date(shop.updatedAt).toLocaleString('pt-BR')}.</p>}
-      </section><CatalogManager active={activeCatalog} onApply={applyCatalog} />
-    </> : <section><h2>{tab === 'history' ? 'Histórico de simulações' : 'Seus cadastros locais'}</h2><p>Perfis são modelos reutilizáveis. Produtos e simulações reabrem o cenário inteiro. Simulações conservam o catálogo original; nenhum recebimento é confirmado.</p>
-      {entries.filter(entry => tab === 'history' ? entry.kind === 'simulation' : entry.kind !== 'simulation').map(entry => <article className="saved-row" key={entry.id}><div><strong>{entry.name}</strong><p>{labels[entry.kind]} · {new Date(entry.updatedAt).toLocaleString('pt-BR')}</p></div><div><button type="button" onClick={() => reopen(entry)}>Abrir</button><button type="button" className="secondary" onClick={() => { void storageAction(repo => repo.remove(entry.id), 'Registro removido.'); }}>Excluir</button></div></article>)}
-      {!entries.some(entry => tab === 'history' ? entry.kind === 'simulation' : entry.kind !== 'simulation') && <p>Nenhum registro salvo nesta categoria.</p>}
-    </section>}
-    <details className="save-panel" open={tab === 'library'}><summary>Salvar produto, perfil ou simulação</summary><div className="fields"><label>Salvar entradas atuais como<select value={saveKind} onChange={event => setSaveKind(event.target.value as SavedKind)}>{Object.entries(labels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label><label>Nome do cadastro<input maxLength={200} value={saveName} onChange={event => setSaveName(event.target.value)} placeholder={text(draft, 'productName') || 'Ex.: PLA branco ou A1 — padrão'} /></label></div>
-      {saveKind === 'filament' && <div className="fields"><Input name="materialName" label="Material do perfil de filamento" /><Field name="filament" label="Preço deste perfil (R$/kg)" /></div>}
-      <button type="button" onClick={() => { void save(); }}>Salvar localmente</button><p className="muted">Cada salvamento cria um registro. Perfis de filamento usam o material e o preço por kg acima. Falhas de armazenamento são informadas.</p>
-      <details><summary>Backup dos dados locais</summary><p>Cadastros ficam neste dispositivo e nesta origem do aplicativo. Exporte antes de limpar dados, trocar de instalação ou desinstalar. O JSON pode conter seus nomes de produtos e custos; guarde-o em local privado.</p><button type="button" className="secondary" onClick={() => { void backup(); }}>Exportar backup JSON</button><label>Restaurar backup (mesmos IDs serão substituídos)<input type="file" accept=".json,application/json" onChange={event => { void importBackup(event.target.files?.[0]); event.target.value = ''; }} /></label></details>
-    </details></div><footer>Dados e arquivos processados localmente. Estimativas antes de custos e tributos não informados. Tarifas desconhecidas permanecem pendentes. Homologação gráfica desta versão ainda não realizada.</footer>
-  </main></FormContext>;
+      </> : page === 'products' ? <ProductLibrary entries={entries} busy={busy} onNew={() => { void startNew(); }} onEdit={(entry, duplicate) => { void editRecord(entry, duplicate); }} onTrash={entry => mutate(() => repo().trash(entry.id), 'Registro movido para a lixeira. Você pode restaurá-lo em Meus produtos.')} onRestore={entry => mutate(() => repo().restore(entry.id), 'Registro restaurado com seus dados e regras originais.')} /> : <div className="settings-area">
+        <section><span className="step-label">Configurações</span><h2>Organize sua oficina no seu ritmo</h2><p>Esses cadastros são reutilizáveis. Nenhuma etapa é obrigatória para começar um cálculo.</p><button type="button" onClick={() => setShowWorkshop(!showWorkshop)}>{showWorkshop ? 'Recolher assistente' : workshop ? 'Retomar configuração da oficina' : 'Configurar minha oficina'}</button></section>
+        {showWorkshop && <WorkshopWizard initial={workshop} tables={catalog.tables} onSave={saveWorkshop} onApply={applyWorkshop} onProfile={saveProfile} />}
+        <section><h2>Impressoras, filamentos e custos salvos</h2>{!realEntries.some(entry => ['printer', 'filament', 'production', 'marketplace'].includes(entry.kind)) && <div className="empty-state"><p>Ainda não há perfis. Você pode criá-los no assistente e continuar calculando sem terminar todas as etapas.</p></div>}{realEntries.filter(entry => ['printer', 'filament', 'production', 'marketplace'].includes(entry.kind)).map(entry => <article className="saved-row" key={entry.id}><div><strong>{entry.name}</strong><p>{savedLabels[entry.kind]}</p></div><div><button type="button" className="secondary" onClick={() => { useProfile(entry, ux.entry === 'none' ? undefined : entry.kind === 'marketplace' ? 'sale' : 'costs'); setPage('calculate'); }}>Usar no cálculo</button><button type="button" className="text-button" onClick={() => setProfileDelete(entry)}>Mover para lixeira…</button></div></article>)}{profileDelete && <div className="confirm-inline" role="alert"><p>Mover “{profileDelete.name}” para a lixeira? As simulações salvas conservam seus próprios custos.</p><button type="button" disabled={busy} onClick={async () => { if (await mutate(() => repo().trash(profileDelete.id), 'Perfil movido para a lixeira; pode ser restaurado em Meus produtos.')) setProfileDelete(null); }}>Confirmar</button><button type="button" className="secondary" onClick={() => setProfileDelete(null)}>Cancelar</button></div>}</section>
+        <CatalogManager active={catalog} onApply={applyCatalog} /><BackupPanel busy={busy} onExport={() => { void exportBackup(); }} onImport={data => mutate(() => repo().import(data), 'Backup restaurado. Conflitos foram preservados como cópias, sem sobrescrever históricos.')} />
+      </div>}
+    </div><footer>FatiaLucro · gratuito e local. Estimativas baseadas nos custos e nas condições informadas. Sem conta ou telemetria obrigatória. Consulta de tarifas somente quando você solicitar.</footer>
+  </main></ExperienceContext></FormContext>;
 }

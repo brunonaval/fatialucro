@@ -1,5 +1,6 @@
 export { calculatePricing } from './pricing';
 export { calculateManufacturing } from './manufacturing';
+export { calculatePackaging } from './packaging';
 export { solvePrice } from './solver';
 export { breakEvenPrice, comparePrices, financialAlerts, depreciationPerHour } from './analysis';
 export { parseBrazilianMoney } from './decimal';
