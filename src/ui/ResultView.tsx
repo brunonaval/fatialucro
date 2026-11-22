@@ -36,7 +36,7 @@ export function ResultView({ result, solution, stale }: { result: PricingResult;
     <details><summary>Custos de fabricação</summary><div className="table-scroll"><table><thead><tr><th>Componente</th><th>Fórmula</th><th>Por unidade</th><th>Total</th></tr></thead><tbody>
       {result.manufacturing.lines.map(line => <tr key={line.id}><td>{line.name}</td><td>{line.formula}<br />Antes de arredondar: {line.rawPerUnit}</td><td>{currency(line.perUnit)}</td><td>{currency(line.total)}</td></tr>)}
     </tbody></table></div></details>
-    <h3>Taxas individualizadas</h3>{result.fees.map(line => <details key={line.rule.id}><summary>{line.rule.name}: {currency(line.amount)} — por {line.rule.scope === 'item' ? 'unidade' : 'pedido'} — {line.rule.evidence.verification === 'custom' ? 'personalizada' : 'documentada'}</summary>
+    <h3>Taxas individualizadas</h3>{result.fees.map(line => <details key={line.rule.id}><summary>{line.rule.name}: total {currency(line.amount)} — incidência por {line.rule.scope === 'item' ? 'unidade' : 'pedido'} — {line.rule.evidence.verification === 'custom' ? 'personalizada' : 'documentada'}</summary>
       <p>Identificador: {line.rule.id}; versão: {line.rule.version}; base: {line.rule.base === 'gross-sales' ? 'receita bruta' : 'receita após desconto do vendedor'}; {line.rule.requirement === 'mandatory' ? 'obrigatória' : line.rule.requirement === 'conditional' ? 'condicional' : 'opcional'}.</p>
       <p>Fórmula: {formulaText(line.resolvedFormula)}. Período inicial: {line.rule.effectiveFrom ?? 'não comprovado'}; origem: {line.rule.evidence.verification === 'custom' ? 'personalizada' : 'documental'}.</p>
       <p>{line.rule.evidence.reference}</p>
