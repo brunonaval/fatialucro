@@ -13,6 +13,7 @@ Branch `feat/pricing-engine-v01`, [PR #1](https://github.com/brunonaval/fatialuc
 - Personalizações desativadas de programas não contaminam programas ativos. Quantidade de lote ausente não interfere no modo por unidade. Perfil de impressora não sobrescreve produto/preço/CPF.
 - Shopee preserva comissão percentual/fixa, adicional CPF condicional, Devolução Fácil, Destaque, Ads Fácil, afiliados e antecipação com fontes/pendências. Publicidade convencional pode ser informada como despesa apurada, independente de adesão Ads Fácil. Obrigatórias bloqueadas e opcionais independentes. Nenhuma cobrança desconhecida é zerada.
 - GitHub Actions: validação leve no PR; Windows apenas por `workflow_dispatch` com `build_windows = true`, retenção de três dias. Não foi solicitado nem disparado build Windows.
+- O primeiro CI da integração detectou dependências opcionais `@emnapi` omitidas do lockfile pelo npm 11.6.2 local. O lockfile foi reparado em diretório limpo com npm 11.19.1 (versão do runner), sem alterar versões diretas, e validado por instalações limpas antes da correção enviada. O job Windows permaneceu ignorado.
 
 As três referências MIT foram estudadas, com commits e conclusões em [referências](references.md). A implementação é própria, reaproveitando o motor decimal existente, sem copiar documentação integral ou arquivos privados.
 
