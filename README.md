@@ -28,7 +28,7 @@ Para desktop, também instale Rust stable MSVC e os pré-requisitos do Windows:
 
 ```powershell
 npm run tauri -- dev
-npm run tauri -- build
+npm run tauri -- build -- --locked
 ```
 
 O instalador gerado requer WebView2 já instalado. Rust não é necessário no computador de quem utiliza o instalador. GitHub Actions valida o projeto e gera um instalador Windows x64 como artefato de revisão, sem publicar releases.

@@ -38,6 +38,8 @@ React exibe os dados e envia strings normalizadas. As opções da conta Shopee c
 
 Tauri 2 empacota a interface e não expõe comandos Rust, permissões de arquivos, shell ou HTTP. CSP restringe scripts e conexões. Não há servidor de aplicação, login, IA, atualização online de tarifas, telemetria ou persistência. Links de fontes são referências consultáveis por iniciativa do usuário. SQLite foi adiado até haver um fluxo de salvar/reabrir, evitando dependência sem uso.
 
+A CSP de desenvolvimento permite os scripts/estilos de atualização do Vite e seu WebSocket somente no loopback. A CSP do aplicativo empacotado mantém essas permissões desativadas. O watcher do Vite ignora `src-tauri` para não recarregar a interface a cada artefato Rust. Configuração baseada na [referência oficial](https://v2.tauri.app/reference/config/#securityconfig) e na [integração Vite](https://v2.tauri.app/start/frontend/vite/).
+
 O instalador NSIS requer WebView2 já instalado (`webviewInstallMode = skip`), para não baixar runtime durante a instalação. Rust/MSVC são requisitos de **desenvolvimento**, não do usuário final. O build de revisão é sem assinatura digital; não é uma publicação de release.
 
 ## Extensão

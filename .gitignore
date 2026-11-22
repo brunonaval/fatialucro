@@ -173,3 +173,4 @@ AuditoriaShopee/
 src-tauri/icons/*
 !src-tauri/icons/icon.png
 !src-tauri/icons/icon.ico
+artifacts/

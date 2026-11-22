@@ -17,7 +17,24 @@ Checkout: `C:\Projetos\FatiaLucro`, repositório `brunonaval/fatialucro`, branch
 
 ## Verificação
 
-Resultados locais e do CI serão consolidados após a execução final. A compilação nativa não pode ser executada localmente porque Rust/Cargo não estão instalados; o ambiente tem MSVC e WebView2. As dependências npm foram instaladas somente após registrar a inspeção dos pré-requisitos.
+| Verificação | Resultado |
+| --- | --- |
+| Instalação limpa `npm ci` no Windows | passou |
+| ESLint sem avisos | passou |
+| Vitest | 75 testes passaram em 4 arquivos, incluindo 6 casos históricos |
+| TypeScript estrito e build de produção Vite | passaram |
+| `npm audit --audit-level=high` | zero vulnerabilidades informadas |
+| CI Linux: instalação limpa, lint, testes, tipos, build e auditoria | passou |
+| CI Windows: `cargo fmt` e `cargo clippy --all-targets -- -D warnings` | passaram |
+| Conferência da interface no Edge headless | 5 cenários funcionais passaram; sem erros JavaScript nem requisições externas |
+| Políticas CSP de desenvolvimento e produção aplicadas no navegador | passaram, sem violações observadas |
+| Build/instalador Windows x64 NSIS | passou; instalador de revisão gerado no GitHub Actions |
+
+Os cenários da interface foram: Shopee R$19,90 com subtotal conhecido R$8,48 e resultado pendente; venda direta com os custos de exemplo e lucro R$14,53; alteração da entrada sinalizando resultado desatualizado; busca de lucro R$5 com preço mínimo R$10,37; preço Shopee R$80 exatamente com fronteira pendente. A visualização em largura 390px também foi inspecionada. Playwright foi utilizado em diretório temporário, sem adicionar dependência ao aplicativo ou ao projeto.
+
+A compilação nativa não pode ser executada localmente porque Rust/Cargo não estão instalados; o ambiente tem MSVC e WebView2. As dependências npm foram instaladas somente após registrar a inspeção dos pré-requisitos. Os totais históricos são regressões da auditoria fornecida, não verificação independente de comprovantes primários.
+
+O primeiro [build Windows bem-sucedido](https://github.com/brunonaval/fatialucro/actions/runs/45055983847) gerou o instalador e o `Cargo.lock`, incorporado ao projeto. O workflow exige `--locked` nas compilações seguintes. O [PR de revisão e suas validações](https://github.com/brunonaval/fatialucro/pull/1/checks) registra o estado atualizado. O instalador não foi instalado nem submetido a teste interativo nativo nesta máquina; a conferência funcional da interface foi no Edge, separadamente do build nativo.
 
 ## Limites conhecidos
 
