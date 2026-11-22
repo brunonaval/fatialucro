@@ -7,11 +7,23 @@ Precificação local de impressão 3D, com custos de produção, simulações de
 1. Informe um produto ou selecione um `.3mf` fatiado do Bambu Studio / G-code textual compatível. Escolha uma placa e clique em **Aplicar placa à produção**. A leitura é local; não há envio de arquivos.
 2. Confira peso, tempo e peças produzidas. No modo lote, esses valores são totais da placa; no modo unidade, descrevem uma peça. A quantidade vendida é independente. Materiais importados precisam de preço por kg explícito ou perfil salvo.
 3. Escolha custo completo por hora **ou** energia, manutenção e depreciação. Trabalho manual, reserva de falhas e consumíveis aceitam zero. Embalagem pode ser por unidade e/ou pedido.
-4. Escolha venda direta ou Shopee. Para Shopee, configure CPF/CNPJ, adesões e frete; leia as premissas e pendências. Nenhum enquadramento é presumido.
-5. Informe preço e unidades vendidas, ou escolha lucro desejado por pedido, margem, ponto de equilíbrio ou comparação. Clique em **Calcular cenário**. Margem `0,20` significa 20%; preços comparados são separados por ponto e vírgula, por exemplo `15; 19,90; 25`.
+4. Escolha venda direta ou Shopee. Em **Loja e tarifas**, configure e salve CPF/CNPJ, adesões e convenções uma vez. O frete é confirmado por cenário; volume antigo de 90 dias volta a ficar em aberto. Nenhum enquadramento ou adesão é presumido.
+5. Informe preço e unidades vendidas, ou escolha lucro desejado por pedido, margem, ponto de equilíbrio ou comparação. Clique em **Calcular cenário**. O campo de margem mostra porcentagem: `20` significa 20% (o motor mantém razão `0.20`). Preços comparados são separados por ponto e vírgula, por exemplo `15; 19,90; 25`.
 6. Salve produto, impressora, filamento, custos de produção, configuração do marketplace ou simulação. **Cadastros** aplica perfis reutilizáveis; **Histórico** reabre entradas e catálogo original da simulação. Recalcular utiliza as regras atuais; buscas e comparações são executadas novamente.
 
-Os valores iniciais são exemplos editáveis. Entradas aceitam `19,90` ou `19.90`, sem separadores de milhar. Alterar qualquer entrada sinaliza resultado desatualizado. Não se deve somar frete ou publicidade já incluídos em outro componente.
+Os valores iniciais são exemplos editáveis. Um novo cenário usa a **data local do computador**, sem mudar datas de históricos reabertos. Moeda aceita `19,90` ou `19.90` e colagem como `R$ 1.234,56`; duração aceita `hh:mm:ss` ou horas decimais. Campos mantêm strings decimais no motor, com validação sem arredondar entradas inválidas. Alterações sinalizam resultado desatualizado. Não duplique frete ou publicidade.
+
+O resumo destaca preço, custos, tarifas calculáveis e lucro do pedido. Demonstrativo e configurações avançadas ficam expansíveis. **Aparência** permite claro, escuro ou sistema, com preferência local; navegação e formulários têm rótulos, foco visível, mensagens acessíveis e layout responsivo. A revisão visual e de teclado no desktop permanece pendente.
+
+## Catálogos versionados
+
+Tabelas em `public/catalogs` registram início/fim de vigência (inclusive `null` quando não comprovados), fontes oficiais e hashes de evidência, última verificação, versão, revisão e estado documental. A seleção considera a data do cenário, substituições explícitas e períodos inclusivos. A revisão anterior permanece arquivada. **A data atual e a seleção automática nunca atualizam a data de verificação.**
+
+Quando não há vigência comprovada, uma referência documental anterior pode ser selecionada para simulação **provisória**, com aceitação explícita da premissa. Não é apresentada como tabela vigente ou recém-verificada. Antes da evidência, após um fim conhecido ou retirada documental, não se recupera silenciosamente uma tabela antiga.
+
+Em **Loja e tarifas → Consultar atualizações no GitHub**, o usuário consulta o canal público de revisão deste PR. A consulta valida esquema, limites e SHA-256, mostra as novas versões e exige **Aplicar publicação revisada**. Não há scraping ou atualização de valores em segundo plano. Falhas/offline preservam a cópia local; downgrades, reescrita/remoção de versões e revisões regressivas são rejeitados. Histórico conserva o catálogo usado. A CSP permite somente o host GitHub necessário a essa consulta, além do IPC local.
+
+O canal está na branch de desenvolvimento; não é uma release pública. A confiança depende do repositório/HTTPS e da revisão documental do mantenedor: hashes detectam corrupção, não constituem assinatura digital independente. [Política, limites e relatório da revisão](docs/tariffs-and-ux.md).
 
 ## O que é calculado
 
@@ -22,7 +34,7 @@ Os valores iniciais são exemplos editáveis. Entradas aceitam `19,90` ou `19.90
 
 A Shopee usa a auditoria e os MHTML arquivados conferidos em 22/11/2026. A classificação separa fórmulas documentadas, **simulações provisórias com premissas ou valores personalizados**, e cobranças indeterminadas que bloqueiam líquido e lucro. Aceitar premissas não resolve adesões ou fórmulas ausentes. A comissão básica obrigatória não pode ser desligada; programas opcionais têm controles independentes. Percentuais e fixos manuais exigem incidência, base, origem e período. Nenhum resultado é recebimento confirmado.
 
-Na faixa regular, R$ 19,90 gera R$ 3,98 + R$ 4,50 = **R$ 8,48 de comissão básica**, com transação incluída. Regressão CPF, fronteiras exatas, vigência, arredondamento e bases após desconto conservam as limitações documentais. A divergência histórica de R$ 0,05 foi preservada. Consulte o [registro Shopee](docs/shopee/README.md).
+Na faixa regular, R$ 19,90 gera R$ 3,98 + R$ 4,50 = **R$ 8,48 de comissão básica**, com transação incluída. A fronteira de **R$ 500 foi comprovada pelo exemplo oficial: comissão básica R$ 96**. R$ 80, R$ 100 e R$ 200 ainda têm lacunas específicas; regressão CPF, vigência, arredondamento e bases após desconto mantêm suas limitações. A divergência histórica de R$ 0,05 foi preservada. Consulte o [registro Shopee](docs/shopee/README.md).
 
 ## Arquivos e dados locais
 
@@ -48,10 +60,11 @@ GitHub Actions executa validação leve em PR. Instalador Windows é opcional: e
 
 - `src/engine`: cálculos decimais, tarifas, fabricação e análises.
 - `src/marketplaces`: adaptadores e fontes versionadas.
+- `public/catalogs`: manifesto, esquema e tabelas documentais imutáveis por versão.
 - `src/importers`: leitura local limitada de metadados e worker.
 - `src/app`: modelo de formulário, composição dos cálculos, worker e persistência.
 - `src/ui`: calculadora, cadastros, histórico e demonstrativos.
 - `src-tauri`: shell e empacotamento Windows.
 - `tests`: regressões financeiras, importadores e IndexedDB em Node.
 
-[Relatório integrado e prontidão](docs/integrated-v01.md) · [Arquitetura](docs/architecture.md) · [Referências e licenças](docs/references.md) · [Revisão financeira anterior](docs/review-v01.md).
+[Revisão atual: tarifas e UX](docs/tariffs-and-ux.md) · [Integração anterior](docs/integrated-v01.md) · [Arquitetura](docs/architecture.md) · [Referências e licenças](docs/references.md).

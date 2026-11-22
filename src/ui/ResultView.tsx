@@ -1,7 +1,11 @@
 import { D } from '../engine/decimal';
 import type { Formula, PricingResult, PriceSolution, TariffCatalog } from '../engine';
 
-export const currency = (value: string | null) => value === null ? 'Pendente' : `R$ ${value.replace('.', ',')}`;
+export const currency = (value: string | null) => {
+  if (value === null) return 'Pendente';
+  const [integer, fraction] = value.split('.');
+  return `R$ ${integer!.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}${fraction ? `,${fraction}` : ''}`;
+};
 const percent = (value: string | null) => value === null ? 'Pendente ou sem denominador' : `${new D(value).mul(100).toFixed(2).replace('.', ',')}%`;
 function formulaText(formula: Formula | null): string {
   if (formula === null) return 'Indeterminada na documentação';
@@ -16,6 +20,7 @@ export function ResultView({ result, solution, stale, catalog, expenses }: { res
     {stale && <p className="notice">Entradas alteradas. Recalcule para atualizar o demonstrativo abaixo.</p>}
     <p>Simulação de custos e recebimentos, sem confirmação de repasse real. {result.confidence === 'provisional' && 'Os resultados dependem das premissas e dos parâmetros personalizados identificados abaixo.'}</p>
     <p>Catálogo: {result.catalog.version}. Arredondamento: HALF_UP por ocorrência.</p>
+    {catalog.provenance && <p className="muted">Verificação documental: {catalog.provenance.lastVerified}. {catalog.provenance.selection === 'effective' ? 'Período declarado selecionado' : catalog.provenance.selection === 'reference' ? 'Referência sem vigência comprovada' : 'Sem tabela aplicável'}. Vigência: {catalog.provenance.effectiveFrom ?? 'início não comprovado'} a {catalog.provenance.effectiveUntil ?? 'fim não comprovado'}. Selecionar não confirma atualização ao vivo.</p>}
     <dl>
       <dt>Receita bruta</dt><dd>{currency(result.grossSales)}</dd>
       <dt>Desconto do vendedor</dt><dd>{currency(result.sellerDiscount)}</dd>

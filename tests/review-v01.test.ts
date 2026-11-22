@@ -40,8 +40,9 @@ describe('distinção entre cálculo documentado, simulação provisória e inde
     expect(result.pending.some(item => item.id === 'shopee:cpf-fixed-precedence')).toBe(true);
     expect(calculate({}, { ...context, seller: 'CNPJ' }).assumptions.some(item => item.kind === 'precedence')).toBe(false);
   });
-  it.each(['80', '100', '200', '500'])('aceitação não inventa a fronteira %s', unitPrice => {
-    expect(calculate({ unitPrice }).confidence).toBe('indeterminate');
+  it.each(['80', '100', '200', '500'])('aceitação respeita a evidência revisada da fronteira %s', unitPrice => {
+    expect(calculate({ unitPrice }).confidence).toBe(unitPrice === '500' ? 'provisional' : 'indeterminate');
+    if (unitPrice === '500') expect(calculate({ unitPrice }).knownMarketplaceFees).toBe('96.00');
     expect(calculate({ unitPrice }, context, basic())).toMatchObject({ status: 'complete', confidence: 'provisional' });
   });
   it('a regressão CPF exige todos os componentes explícitos, inclusive adicional zero', () => {
@@ -110,12 +111,13 @@ describe('distinção entre cálculo documentado, simulação provisória e inde
     expect(result.knownMarketplaceFees).toBe('8.48');
     expect(result.documentedMarketplaceFees).toBe('0.00');
   });
-  it('não reutiliza a tabela fora da captura; um cenário inteiramente personalizado usa seu próprio período', () => {
-    expect(calculate({ date: '2026-11-23' }).status).toBe('partial');
+  it('reutiliza como referência provisória explícita, sem alterar verificação, e preserva períodos personalizados', () => {
+    expect(calculate({ date: '2026-11-23' })).toMatchObject({ status: 'complete', confidence: 'provisional' });
+    expect(createShopeeCatalog(context, '19.90', '0', '2026-11-23').provenance).toMatchObject({ selection: 'reference', lastVerified: '2026-11-22', effectiveFrom: null });
     const overrides = Object.fromEntries(Object.entries(basic()).map(([id, value]) => [id, { ...value, effectiveFrom: '2026-11-23', effectiveUntil: '2026-11-24' }]));
     expect(calculate({ date: '2026-11-23' }, context, overrides)).toMatchObject({ status: 'complete', confidence: 'provisional' });
     expect(calculate({ date: '2026-11-25' }, context, overrides).status).toBe('partial');
-    expect(calculate({ date: '2026-11-23' }, { ...context, returnsProtection: 'billable' }, overrides).status).toBe('partial');
+    expect(calculate({ date: '2026-11-23' }, { ...context, returnsProtection: 'billable' }, overrides)).toMatchObject({ status: 'complete', confidence: 'provisional', documentedMarketplaceFees: '0.49' });
   });
 });
 

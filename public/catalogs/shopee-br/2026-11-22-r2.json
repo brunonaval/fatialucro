@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "adapter": "shopee-v1",
+  "id": "shopee-br-20261122-r2",
+  "marketplace": "shopee-br",
+  "version": "2026-11-22.2",
+  "revision": 2,
+  "effectiveFrom": null,
+  "effectiveUntil": null,
+  "confirmation": "documentary",
+  "observedAt": "2026-11-22",
+  "lastVerified": "2026-11-22",
+  "review": {
+    "status": "reviewed",
+    "reference": "docs/tariffs-and-ux.md#revisao-documental"
+  },
+  "supersedes": [
+    "shopee-br-20261122-r1"
+  ],
+  "sources": [
+    {
+      "id": "commission",
+      "url": "https://seller.shopee.com.br/edu/article/26839/Comissao-para-vendedores-CNPJ-e-CPF-em-2026",
+      "htmlSha256": "331dcf3b8d741697532ae52a8e9399c567e255a29893ad97f3c2c23c03a3d0b5",
+      "checkedAt": "2026-11-22"
+    },
+    {
+      "id": "cnpj",
+      "url": "https://seller.shopee.com.br/edu/article/18483/como-funciona-a-politica-de-comissao-para-vendedores-shopee",
+      "htmlSha256": "7655cf79ce99626c18edc1c29e4542f6fccc4324205dc384e3a4830454a73f4a",
+      "checkedAt": "2026-11-22"
+    },
+    {
+      "id": "cpf",
+      "url": "https://seller.shopee.com.br/edu/article/18484/como-funciona-o-adicional-de-comissao-para-vendedores-CPF",
+      "htmlSha256": "5ab9fa3648c396208637c52310f55442581f8d3069ebbb377195ece278e8ea8e",
+      "checkedAt": "2026-11-22"
+    },
+    {
+      "id": "returns",
+      "url": "https://seller.shopee.com.br/edu/article/26700/Devolucao-Facil-Shopee",
+      "htmlSha256": "a5aa87382be4aeba0657f54cda135fbcab12734985754dc3934f2fb933131084",
+      "checkedAt": "2026-11-22"
+    },
+    {
+      "id": "campaign",
+      "url": "https://seller.shopee.com.br/edu/article/18712/pacotes-de-campanhas-shopee",
+      "htmlSha256": "d9fb6b1e765d81b72795b599df00903f3246d2ffe62eb5c2f888d7192d548733",
+      "checkedAt": "2026-11-22"
+    }
+  ],
+  "bands": [
+    {
+      "from": "0.00",
+      "includeFrom": true,
+      "to": "79.99",
+      "includeTo": true,
+      "percent": "20",
+      "fixed": "4.50"
+    },
+    {
+      "from": "80.00",
+      "includeFrom": false,
+      "to": "99.99",
+      "includeTo": true,
+      "percent": "14",
+      "fixed": "16.00"
+    },
+    {
+      "from": "100.00",
+      "includeFrom": false,
+      "to": "199.99",
+      "includeTo": true,
+      "percent": "14",
+      "fixed": "20.00"
+    },
+    {
+      "from": "200.00",
+      "includeFrom": false,
+      "to": null,
+      "includeTo": false,
+      "percent": "14",
+      "fixed": "26.00"
+    }
+  ],
+  "cnpjLow": {
+    "below": "9.00",
+    "fixedPercent": "50"
+  },
+  "cpf": {
+    "regressiveBelow": "12.00",
+    "volumeThreshold": 450,
+    "extra": "3.00",
+    "fixedConflict": true,
+    "thresholdInclusive": null
+  },
+  "programs": {
+    "returnsPerOrder": "0.49",
+    "highlightPercent": "5"
+  },
+  "boundaryReview": [
+    {
+      "price": "80.00",
+      "status": "unresolved",
+      "sourceIds": [
+        "commission",
+        "cnpj"
+      ],
+      "note": "Tabela encerra a primeira faixa em 79,99 e escreve acima de 80. A prosa de 80 refere-se a subsidio/frete, sem comprovar a comissao exata."
+    },
+    {
+      "price": "100.00",
+      "status": "unresolved",
+      "sourceIds": [
+        "commission",
+        "cnpj"
+      ],
+      "note": "Faixa anterior termina em 99,99; a seguinte diz acima de 100. Nao foi localizado exemplo de comissao para exatamente 100."
+    },
+    {
+      "price": "200.00",
+      "status": "unresolved",
+      "sourceIds": [
+        "commission",
+        "cnpj"
+      ],
+      "note": "Faixa anterior termina em 199,99 e a seguinte diz acima de 200; trechos de subsidio nao determinam a comissao exata."
+    },
+    {
+      "price": "500.00",
+      "status": "confirmed",
+      "sourceIds": [
+        "cnpj"
+      ],
+      "note": "Exemplo oficial de item de 500 com cartao/boleto informa comissao de 96 e liquido 404: 14% de 500 mais 26. A fronteira basica de 500 deixa de ser bloqueante; subsidio Pix nao e desconto bancado pelo vendedor."
+    }
+  ]
+}

@@ -2,6 +2,14 @@
 
 ## 0.1.0 — 22/11/2026
 
+Profissionalização de tarifas e UX:
+
+- Catálogos JSON versionados, períodos/estado documental/fonte/verificação, revisão anterior arquivada e seleção por data local do cenário.
+- Consulta GitHub opt-in com esquema, hashes, limites, revisão prévia, aplicação explícita, cache offline e proteção contra regressões/concorrência.
+- Fronteira básica de R$500 resolvida pelo exemplo oficial de comissão R$96; R$80/100/200 mantêm pendências justificadas.
+- Loja reutilizada na abertura, dados variáveis por cenário, resumo financeiro, detalhes expansíveis, temas persistentes, componentes/tokens e campos formatados.
+- Migração IndexedDB preserva cadastros/snapshots. Nenhum instalador ou interface gráfica executado nesta etapa.
+
 Integração funcional, preservando o motor e o histórico:
 
 - Produção por lote ou unidade, materiais independentes, perfis de impressora/filamento, depreciação e rateio explícito.

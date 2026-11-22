@@ -64,6 +64,11 @@ export interface TariffCatalog {
   rules: readonly FeeRule[];
   pending: readonly Pending[];
   assumptions?: readonly Assumption[];
+  provenance?: {
+    tableId: string; version: string; revision: number; lastVerified: string;
+    effectiveFrom: string | null; effectiveUntil: string | null;
+    confirmation: 'documentary' | 'confirmed' | 'withdrawn'; selection: 'effective' | 'reference' | 'unavailable';
+  };
 }
 
 export interface ManufacturingInput {

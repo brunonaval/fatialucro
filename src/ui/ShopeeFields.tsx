@@ -5,13 +5,12 @@ export function ShopeeFields() {
   return <fieldset><legend>Shopee: enquadramento e tarifas</legend>
     <div className="fields">
       <Select name="seller" label="Cadastro do vendedor"><option value="">Selecione CPF ou CNPJ</option><option value="CPF">CPF</option><option value="CNPJ">CNPJ</option></Select>
-      {seller === 'CPF' && <Input name="orders" label="Pedidos em 90 dias (vazio = desconhecido)" required={false} />}
     </div>
     <label className="check"><input type="checkbox" checked disabled /> Comissão básica obrigatória: percentual e parcela fixa; transação já incluída.</label>
     <p>A tabela arquivada calcula R$ 8,48 de comissão básica sobre R$ 19,90 na faixa regular. Vigência, enquadramento e adesões precisam ser conferidos.</p>
     <details><summary>Premissas e parâmetros avançados</summary>
       <p>Uma cobrança desconhecida bloqueia o lucro completo. Premissas aceitas e tarifas personalizadas produzem simulações provisórias.</p>
-      <Check name="acceptValidity">Aceito usar a tabela arquivada no cenário de 22/11/2026, sem comprovação do início da vigência.</Check>
+      <Check name="acceptValidity">Aceito simular com a referência selecionada, sem confirmação ao vivo de vigência. A data da última verificação fica registrada no resultado.</Check>
       <Check name="acceptRounding">Aceito HALF_UP por ocorrência como convenção desta simulação, sem confirmação da política da Shopee.</Check>
       {seller === 'CPF' && <Check name="acceptPrecedence">Na faixa comum CPF, aceito R$ 4,50 da tabela do artigo 26839, apesar de R$ 4 no texto do artigo 18484. A divergência permanece aberta.</Check>}
       <details><summary>Comissão básica personalizada</summary>

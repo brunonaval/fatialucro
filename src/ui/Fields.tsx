@@ -1,6 +1,9 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useId, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { CalculatorDraft } from '../app/model';
+import { editableNumeric, formattedNumeric, kindForField, normalizeNumeric, numericIssue } from './format';
+import type { FieldKind } from './format';
+import { D } from '../engine/decimal';
 
 export const FormContext = createContext<{ draft: CalculatorDraft; setField: (name: string, value: string | boolean) => void } | null>(null);
 export function useForm() { const context = useContext(FormContext); if (!context) throw new Error('Formulário indisponível.'); return context; }
@@ -16,9 +19,25 @@ export function Check({ name, children }: { name: string; children: ReactNode })
   const { draft, setField } = useForm();
   return <label className="check"><input type="checkbox" name={name} checked={draft.fields[name] === true} onChange={event => setField(name, event.target.checked)} />{children}</label>;
 }
+export function NumericInput({ value, onValue, kind, name, label }: { value: string; onValue: (value: string) => void; kind: FieldKind; name: string; label: string }) {
+  const id = useId(); const [editing, setEditing] = useState<string | null>(null); const [touched, setTouched] = useState(false);
+  const issue = touched ? numericIssue(value, kind) : '';
+  const update = (input: string) => {
+    const next = normalizeNumeric(input, kind);
+    if (!numericIssue(next, kind) && !numericIssue(value, kind) && new D(next.replace(',', '.')).eq(value.replace(',', '.'))) return;
+    if (next !== value) onValue(next);
+  };
+  const unit = kind === 'money' ? 'R$' : kind === 'ratio' || kind === 'percent' ? '%' : kind === 'weight' ? 'g' : kind === 'duration' ? 'h:m:s' : '';
+  return <label htmlFor={id}>{label}<span className={`numeric-control ${issue ? 'has-error' : ''}`}><input id={id} name={name} value={editing ?? formattedNumeric(value, kind)} inputMode={kind === 'duration' ? 'text' : 'decimal'} required aria-invalid={issue ? true : undefined} aria-describedby={`${id}-help`}
+    onFocus={() => setEditing(editableNumeric(value, kind))}
+    onChange={event => { setEditing(event.target.value); update(event.target.value); }}
+    onBlur={event => { update(event.target.value); setEditing(null); setTouched(true); }} />{unit && <span aria-hidden="true" className="unit">{unit}</span>}</span>
+    <small id={`${id}-help`} className={issue ? 'field-error' : 'field-hint'}>{issue || (kind === 'duration' ? 'Horas:minutos:segundos ou horas decimais.' : kind === 'ratio' ? 'Porcentagem da receita após desconto.' : '\u00a0')}</small>
+  </label>;
+}
 export function Field({ name, label, decimal = false }: { name: string; label: string; decimal?: boolean }) {
   const { draft, setField } = useForm();
-  return <label>{label}<input name={name} value={String(draft.fields[name] ?? '')} onChange={event => setField(name, event.target.value)} inputMode="decimal" required pattern={decimal ? '[0-9]+([,.][0-9]{1,12})?' : '[0-9]+([,.][0-9]{1,2})?'} /></label>;
+  return <NumericInput name={name} label={label} value={String(draft.fields[name] ?? '')} onValue={value => setField(name, value)} kind={kindForField(name, decimal)} />;
 }
 export function ScopeField({ name, label }: { name: string; label: string }) {
   return <Select name={name} label={label}><option value="">Selecione a incidência</option><option value="item">Por unidade vendida</option><option value="order">Uma vez por pedido</option></Select>;

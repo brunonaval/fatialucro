@@ -94,5 +94,21 @@
       "reviewedAt": "2026-11-22",
       "reviewMethod": "HTML MIME decodificado: SHA-256 recomputado e trechos relevantes lidos localmente; capturas arquivadas, sem reverificacao de vigencia ao vivo."
     }
-  ]
+  ],
+  "boundaryRecheck": {
+    "method": "Releitura MIME do HTML e OCR local das tabelas/exemplo incorporados, sem navegador ou captura de tela. Mesmos hashes HTML conferidos novamente.",
+    "reviewedAt": "2026-11-22",
+    "tableRevision": "2026-11-22.2",
+    "resolved": [
+      "500.00"
+    ],
+    "unresolved": [
+      "80.00",
+      "100.00",
+      "200.00"
+    ],
+    "exampleSource": "18483",
+    "exampleAssetSha256": "925a3a83feae392e6afbb04d9bce32c96d332c20a901a01aac2a4792f5b3a753",
+    "conclusion": "Exemplo oficial de 500 com comissao basica de 96 e liquido 404. Subsidios/frete nao comprovam a comissao nas demais fronteiras. Sem prova de vigencia inicial ou continuidade ao vivo."
+  }
 }

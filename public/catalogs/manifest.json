@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "releaseSequence": 1,
+  "publishedAt": "2026-11-22",
+  "review": {
+    "status": "reviewed",
+    "reference": "docs/tariffs-and-ux.md"
+  },
+  "files": [
+    {
+      "id": "shopee-br-20261122-r2",
+      "version": "2026-11-22.2",
+      "revision": 2,
+      "path": "catalogs/shopee-br/2026-11-22-r2.json",
+      "sha256": "79d7de20792f5a2839121e3fd2b3d35d92068ac64819749f94c5309d8f180c31",
+      "bytes": 3919
+    },
+    {
+      "id": "shopee-br-20261122-r1",
+      "version": "2026-11-22.1",
+      "revision": 1,
+      "path": "catalogs/shopee-br/2026-11-22-r1.json",
+      "sha256": "5e9a7c10d92defd8b1794e4b1ef4875980655ff61655874fb3f8d09cf05bfc90",
+      "bytes": 4000
+    }
+  ]
+}

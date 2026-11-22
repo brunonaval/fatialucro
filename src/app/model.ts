@@ -5,6 +5,8 @@ import { directSaleCatalog } from '../marketplaces/custom';
 import { createShopeeCatalog, SHOPEE_SNAPSHOT, shopeeFacts, shopeeSelections } from '../marketplaces/shopee/catalog';
 import type { Participation, ShopeeContext } from '../marketplaces/shopee/catalog';
 import type { ImportedPlate } from '../importers/types';
+import { bundledTables } from '../marketplaces/catalogs/bundled';
+import type { ShopeeTable } from '../marketplaces/catalogs/types';
 
 export const manualIds = ['shopee:cpf-extra', 'shopee:returns-protection', 'shopee:highlight', 'shopee:adsEasy', 'shopee:affiliates', 'shopee:cashAdvance'];
 const initialFields: Record<string, string | boolean> = {
@@ -26,7 +28,10 @@ for (const id of manualIds) Object.assign(initialFields, {
 });
 export interface MaterialDraft { id: string; name: string; grams: string; pricePerKg: string }
 export interface CalculatorDraft { fields: Record<string, string | boolean>; materials: MaterialDraft[] }
-export const defaultDraft = (): CalculatorDraft => ({ fields: { ...initialFields }, materials: [] });
+export function localDate(now = new Date()): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+export const defaultDraft = (now = new Date()): CalculatorDraft => ({ fields: { ...initialFields, date: localDate(now), manualFrom: localDate(now), manualUntil: localDate(now) }, materials: [] });
 export function text(draft: CalculatorDraft, name: string): string { return String(draft.fields[name] ?? ''); }
 export function numeric(value: string, name: string): string {
   if (!/^\d{1,18}([,.]\d{1,12})?$/.test(value)) throw new Error(`${name}: informe um decimal não negativo, sem separador de milhar.`);
@@ -40,10 +45,11 @@ export function expenseBreakdown(draft: CalculatorDraft) {
   return { other: parseBrazilianMoney(text(draft, 'other')), advertising: draft.fields.advertisingEnabled === true ? parseBrazilianMoney(text(draft, 'advertising')) : '0.00' };
 }
 
-export function buildScenario(draft: CalculatorDraft) {
+export function buildScenario(draft: CalculatorDraft, tables: readonly ShopeeTable[] = bundledTables) {
   const t = (name: string) => text(draft, name);
-  const m = (name: string) => parseBrazilianMoney(t(name));
-  const v = (name: string) => numeric(t(name), name);
+  const labels: Record<string, string> = { grams: 'Peso de filamento', hours: 'Tempo de impressão', machine: 'Custo completo por hora', filament: 'Preço por kg', watts: 'Potência média', kwh: 'Preço da energia', maintenance: 'Manutenção por hora', depreciation: 'Depreciação por hora', laborMinutes: 'Trabalho manual', laborHour: 'Valor da mão de obra', price: 'Preço de venda', packagingUnit: 'Embalagem individual', packagingOrder: 'Embalagem do pedido', discount: 'Desconto do vendedor', shipping: 'Frete líquido', consumables: 'Consumíveis', failure: 'Reserva de falhas', manualFixed: 'Tarifa fixa personalizada', manualRate: 'Comissão percentual personalizada' };
+  const m = (name: string) => { try { return parseBrazilianMoney(t(name)); } catch { throw new Error(`${labels[name] ?? 'Valor personalizado'}: informe um valor em reais, com até duas casas decimais.`); } };
+  const v = (name: string) => numeric(t(name), labels[name] ?? 'Parâmetro personalizado');
   const yes = (name: string) => draft.fields[name] === true;
   if (!['direct', 'shopee'].includes(t('marketplace'))) throw new Error('Canal inválido.');
   if (!['all-in', 'detailed'].includes(t('machineMode')) || !['unit', 'batch'].includes(t('basis'))) throw new Error('Modo de fabricação inválido.');
@@ -94,7 +100,7 @@ export function buildScenario(draft: CalculatorDraft) {
     selections: t('marketplace') === 'shopee' ? shopeeSelections(context) : {}, facts: t('marketplace') === 'shopee' ? shopeeFacts(context) : {},
     acceptedAssumptions: { validity: yes('acceptValidity'), rounding: yes('acceptRounding'), precedence: yes('acceptPrecedence') },
   };
-  const catalogAt = (price: string) => t('marketplace') === 'shopee' ? createShopeeCatalog(context, price, input.sellerDiscount, input.date, overrides) : directSaleCatalog();
+  const catalogAt = (price: string) => t('marketplace') === 'shopee' ? createShopeeCatalog(context, price, input.sellerDiscount, input.date, overrides, tables) : directSaleCatalog();
   return { input, catalogAt };
 }
 

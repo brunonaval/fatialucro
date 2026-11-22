@@ -2,6 +2,9 @@ import { D, date, decimal, money } from '../../engine/decimal';
 import { applyManualFees } from '../../engine/manual';
 import type { ManualFee } from '../../engine/manual';
 import type { Evidence, FeeRule, Pending, TariffCatalog } from '../../engine/types';
+import { bundledTables } from '../catalogs/bundled';
+import { priceBand, selectTable } from '../catalogs/select';
+import type { ShopeeTable } from '../catalogs/types';
 
 export const SHOPEE_SNAPSHOT = '2026-11-22';
 export type Participation = 'inactive' | 'active' | 'unknown';
@@ -32,13 +35,21 @@ export const shopeeSources = {
   campaign: source('shopee-campaign-20261122', ['18712/pacotes-de-campanhas-shopee']),
 };
 
-/** Own synthesis of the supplied audit. Capture dates never become effective dates.
- * Only the capture-day scenario is admitted, always with unresolved validity and
- * rounding. This is a documentary preview, not a confirmed settlement forecast.
- */
+/** Versioned documentary adapter. Observation and selection never prove validity. */
 export function createShopeeCatalog(context: ShopeeContext, unitPrice: string, sellerDiscount: string, saleDate: string,
-  overrides: Readonly<Record<string, ManualFee>> = {}): TariffCatalog {
+  overrides: Readonly<Record<string, ManualFee>> = {}, tables: readonly ShopeeTable[] = bundledTables): TariffCatalog {
   date(saleDate);
+  const selection = selectTable(saleDate, tables);
+  const table = selection?.table ?? tables.filter(item => item.confirmation !== 'withdrawn').sort((a, b) => b.revision - a.revision)[0];
+  if (!table) return { marketplace: 'shopee-br', version: 'unavailable', purpose: 'simulation', simulationFrom: saleDate, simulationUntil: saleDate, rules: [], pending: [{ id: 'catalog-date', message: 'Nenhuma tabela disponível para esta data. Consulte um catálogo documental revisado.' }] };
+  const sourceFor = (key: keyof typeof shopeeSources): Evidence => {
+    const original = shopeeSources[key];
+    const ids = key === 'commission' ? ['commission', 'cnpj'] : key === 'campaign' ? ['campaign'] : [key];
+    return { ...original, id: `${table.id}:${key}`, capturedAt: table.observedAt,
+      urls: table.sources.filter(item => ids.includes(item.id)).map(item => item.url),
+      reference: `Tabela ${table.version}; verificação documental ${table.lastVerified}. ${table.review.reference}. Seleção por data não comprova atualização ao vivo ou adesão da loja.` };
+  };
+  const sources = { commission: sourceFor('commission'), cpf: sourceFor('cpf'), returns: sourceFor('returns'), campaign: sourceFor('campaign') };
   const price = money(unitPrice);
   const discount = money(sellerDiscount);
   const isZeroManual = (id: string) => {
@@ -60,58 +71,59 @@ export function createShopeeCatalog(context: ShopeeContext, unitPrice: string, s
   const rules: FeeRule[] = [];
   const pending: Pending[] = [];
   const add = (id: string, name: string, formula: FeeRule['formula'], evidence: Evidence, options: Partial<FeeRule> = {}) => {
-    rules.push({ id, name, version: 'documentary-2026-11-22-v1-review1', formula, base: 'gross-sales', scope: 'item',
-      requirement: 'mandatory', conditions: [], includes: [], effectiveFrom: null, effectiveUntil: null, evidence, ...options });
+    rules.push({ id, name, version: table.version, formula, base: 'gross-sales', scope: 'item',
+      requirement: 'mandatory', conditions: [], includes: [], effectiveFrom: table.effectiveFrom, effectiveUntil: table.effectiveUntil, evidence, ...options });
   };
   if (!discount.isZero()) {
     pending.push({ id: 'shopee:discount-base', message: 'A base e a faixa de comissão com desconto/cupom não foram comprovadas. Informe parâmetros personalizados para os dois componentes da comissão básica.', manualRuleIds: ['shopee:commission', 'shopee:fixed'] });
   }
-  const boundary = ['80.00', '100.00', '200.00', '500.00'].some(value => price.eq(value));
-  const cpfLow = context.seller === 'CPF' && price.lt(12);
+  const band = priceBand(table, unitPrice);
+  const boundary = !band;
+  const cpfLow = context.seller === 'CPF' && price.lt(table.cpf.regressiveBelow);
   if (context.seller === null) {
     pending.push({ id: 'shopee:seller', message: 'Selecione explicitamente CPF ou CNPJ; nenhum enquadramento foi presumido.' });
   } else if (boundary) {
-    pending.push({ id: 'shopee:price-boundary', message: 'Preço exatamente em 80, 100, 200 ou 500 reais: fronteira documental não esclarecida.', manualRuleIds: ['shopee:commission', 'shopee:fixed'] });
+    pending.push({ id: 'shopee:price-boundary', message: `Preço ${unitPrice}: faixa/fronteira não esclarecida nesta versão. ${table.boundaryReview.find(item => price.eq(item.price))?.note ?? 'Sem regra documental aplicável.'}`, manualRuleIds: ['shopee:commission', 'shopee:fixed'] });
   } else if (cpfLow) {
-    pending.push({ id: 'shopee:cpf-regressive', message: 'CPF abaixo de R$ 12: fórmula regressiva e abrangência por volume não determinadas; não houve interpolação. Uma simulação exige os três componentes personalizados, inclusive adicional CPF explícito.', manualRuleIds: ['shopee:commission', 'shopee:fixed', 'shopee:cpf-extra'] });
+    pending.push({ id: 'shopee:cpf-regressive', message: `CPF abaixo de R$ ${table.cpf.regressiveBelow}: fórmula regressiva e abrangência por volume não determinadas; não houve interpolação. Uma simulação exige os três componentes personalizados, inclusive adicional CPF explícito.`, manualRuleIds: ['shopee:commission', 'shopee:fixed', 'shopee:cpf-extra'] });
   } else {
-    const rate = price.lt(80) ? '20' : '14';
-    const fixed = price.lt(80) ? '4.50' : price.lt(100) ? '16.00' : price.lt(200) ? '20.00' : '26.00';
+    const rate = band!.percent;
+    const fixed = band!.fixed;
     add('shopee:commission', 'Comissão percentual (já contempla transação)', discount.isZero() ? { kind: 'percentage', rate } : null,
-      shopeeSources.commission, { includes: ['shopee:transaction'] });
-    add('shopee:fixed', context.seller === 'CNPJ' && price.lt(9) ? 'Parcela de baixo valor CNPJ: metade do preço' : 'Parcela fixa por item',
-      !discount.isZero() ? null : context.seller === 'CNPJ' && price.lt(9) ? { kind: 'percentage', rate: '50' } : { kind: 'fixed', amount: fixed }, shopeeSources.commission);
+      sources.commission, { includes: ['shopee:transaction'] });
+    add('shopee:fixed', context.seller === 'CNPJ' && price.lt(table.cnpjLow.below) ? 'Parcela proporcional de baixo valor CNPJ' : 'Parcela fixa por item',
+      !discount.isZero() ? null : context.seller === 'CNPJ' && price.lt(table.cnpjLow.below) ? { kind: 'percentage', rate: table.cnpjLow.fixedPercent } : { kind: 'fixed', amount: fixed }, sources.commission);
   }
   // Named unresolved placeholders let a user replace precisely these charges.
   // Accepting validity or rounding alone cannot supply their missing formulas.
   if (context.seller !== null && !rules.some(rule => rule.id === 'shopee:commission')) {
-    add('shopee:commission', 'Comissão percentual: regra não determinada para este cenário', null, shopeeSources.commission, { includes: ['shopee:transaction'] });
-    add('shopee:fixed', 'Parcela fixa: regra não determinada para este cenário', null, shopeeSources.commission);
+    add('shopee:commission', 'Comissão percentual: regra não determinada para este cenário', null, sources.commission, { includes: ['shopee:transaction'] });
+    add('shopee:fixed', 'Parcela fixa: regra não determinada para este cenário', null, sources.commission);
   }
   // Explanatory child: excluded by the containing commission before evaluating its null formula.
   if (rules.some(rule => rule.id === 'shopee:commission')) {
-    add('shopee:transaction', 'Transação: componente incluído', null, shopeeSources.commission);
+    add('shopee:transaction', 'Transação: componente incluído', null, sources.commission);
   }
   if (context.seller === 'CPF') {
     if (context.ordersLast90Days === null) pending.push({ id: 'shopee:cpf-volume', message: 'Informe os pedidos em 90 dias para avaliar o adicional CPF ou forneça explicitamente seu valor personalizado.', manualRuleIds: ['shopee:cpf-extra'] });
-    else if (context.ordersLast90Days === 450) pending.push({ id: 'shopee:cpf-450', message: 'Exatamente 450 pedidos: documentos divergem sobre a incidência do adicional CPF.', manualRuleIds: ['shopee:cpf-extra'] });
-    else if (context.ordersLast90Days > 450 && !cpfLow) {
-      add('shopee:cpf-extra', 'Adicional CPF de alto volume', { kind: 'fixed', amount: '3.00' }, shopeeSources.cpf,
-        { requirement: 'conditional', conditions: [{ key: 'cpfHighVolume', equals: true }] });
+    else if (context.ordersLast90Days === table.cpf.volumeThreshold && table.cpf.thresholdInclusive === null) pending.push({ id: 'shopee:cpf-450', message: `Exatamente ${table.cpf.volumeThreshold} pedidos: incidência do adicional CPF não esclarecida nesta versão.`, manualRuleIds: ['shopee:cpf-extra'] });
+    else if ((context.ordersLast90Days > table.cpf.volumeThreshold || (table.cpf.thresholdInclusive === true && context.ordersLast90Days === table.cpf.volumeThreshold)) && !cpfLow) {
+      add('shopee:cpf-extra', 'Adicional CPF de alto volume', { kind: 'fixed', amount: table.cpf.extra }, sources.cpf,
+        { requirement: 'conditional', conditions: [{ key: 'isCpf', equals: true }] });
     }
-    if ((cpfLow || context.ordersLast90Days === null || context.ordersLast90Days === 450) && !rules.some(rule => rule.id === 'shopee:cpf-extra')) {
-      add('shopee:cpf-extra', 'Adicional CPF: incidência ou valor não determinado', null, shopeeSources.cpf,
+    if ((cpfLow || context.ordersLast90Days === null || (context.ordersLast90Days === table.cpf.volumeThreshold && table.cpf.thresholdInclusive === null)) && !rules.some(rule => rule.id === 'shopee:cpf-extra')) {
+      add('shopee:cpf-extra', 'Adicional CPF: incidência ou valor não determinado', null, sources.cpf,
         { requirement: 'conditional', conditions: [{ key: 'isCpf', equals: true }] });
     }
   }
   if (context.returnsProtection === 'unknown') pending.push({ id: 'shopee:returns-enrollment', message: 'Confirme se Devolução Fácil está inativo, em teste ou cobrável neste pedido pago.' });
   else {
-    add('shopee:returns-protection', 'Devolução Fácil: pedido pago fora da gratuidade', { kind: 'fixed', amount: '0.49' }, shopeeSources.returns,
+    add('shopee:returns-protection', 'Devolução Fácil: pedido pago fora da gratuidade', { kind: 'fixed', amount: table.programs.returnsPerOrder }, sources.returns,
       { requirement: 'optional', scope: 'order', conditions: [{ key: 'returnsBillable', equals: true }] });
   }
   if (context.highlightCampaign === 'unknown') pending.push({ id: 'shopee:campaign-enrollment', message: 'Confirme a adesão efetiva e o período da Campanha de Destaque.' });
-  else add('shopee:highlight', 'Campanha de Destaque: todas as vendas da loja durante adesão', discount.isZero() ? { kind: 'percentage', rate: '5' } : null,
-    shopeeSources.campaign, { requirement: 'optional', conditions: [{ key: 'highlightActive', equals: true }] });
+  else add('shopee:highlight', 'Campanha de Destaque: todas as vendas da loja durante adesão', discount.isZero() ? { kind: 'percentage', rate: table.programs.highlightPercent } : null,
+    sources.campaign, { requirement: 'optional', conditions: [{ key: 'highlightActive', equals: true }] });
   const deferred = [
     ['adsEasy', 'Ads Fácil', ['23254/FAQ-Ads-Facil']],
     ['affiliates', 'Afiliados', ['24596/Solucao-de-marketing-de-afiliados-Campanha', '20749/principais-duvidas-sobre-o-programa-de-afiliados']],
@@ -128,23 +140,25 @@ export function createShopeeCatalog(context: ShopeeContext, unitPrice: string, s
     }
   }
   if (!context.shippingConfirmed) pending.push({ id: 'shopee:shipping', message: 'Frete/coparticipação do vendedor ainda não confirmado; o valor informado é apenas parcial.' });
-  const catalog = applyManualFees({ marketplace: 'shopee-br', version: 'shopee-br-documentary-2026-11-22-v1-review1', purpose: 'simulation',
-    simulationFrom: SHOPEE_SNAPSHOT, simulationUntil: SHOPEE_SNAPSHOT, rules, pending }, overrides);
+  const catalog = applyManualFees({ marketplace: 'shopee-br', version: `${table.id}:${table.version}`, purpose: 'simulation',
+    simulationFrom: table.effectiveFrom ?? table.observedAt, simulationUntil: table.effectiveUntil ?? '9999-12-31', rules, pending }, overrides);
   const selections: Readonly<Record<string, boolean>> = shopeeSelections(context);
   const included = new Set(catalog.rules.flatMap(rule => rule.includes));
   const activeCharges = catalog.rules.filter(rule => !included.has(rule.id) && selections[rule.id] !== false);
   const hasDocumentedCharge = activeCharges.some(rule => rule.formula !== null && rule.evidence.verification === 'documented');
-  const cpfFixedConflict = context.seller === 'CPF' && activeCharges.some(rule => rule.id === 'shopee:fixed' && rule.evidence.verification === 'documented' && rule.formula?.kind === 'fixed' && rule.formula.amount === '4.50');
-  // Only a wholly user-defined scenario may use the user's own period outside
-  // the documentary snapshot. Mixed scenarios never extrapolate archived fees.
+  const cpfFixedConflict = table.cpf.fixedConflict && context.seller === 'CPF' && activeCharges.some(rule => rule.id === 'shopee:fixed' && rule.evidence.verification === 'documented' && rule.formula?.kind === 'fixed');
+  // A wholly user-defined scenario uses the intersection of personal periods.
+  // Documentary references remain provisional, without inventing legal dates.
   const whollyCustom = catalog.pending.length === 0 && activeCharges.length > 0 && activeCharges.every(rule => rule.evidence.verification === 'custom');
   const personalFrom = whollyCustom ? activeCharges.map(rule => rule.effectiveFrom!).sort().at(-1)! : catalog.simulationFrom;
   const personalUntil = whollyCustom ? activeCharges.map(rule => rule.effectiveUntil!).sort()[0]! : catalog.simulationUntil;
   return { ...catalog,
+    provenance: { tableId: table.id, version: table.version, revision: table.revision, lastVerified: table.lastVerified, effectiveFrom: table.effectiveFrom, effectiveUntil: table.effectiveUntil, confirmation: table.confirmation, selection: selection?.mode ?? 'unavailable' },
+    ...(!selection && !whollyCustom ? { rules: [], pending: [...catalog.pending, { id: 'catalog-date', message: 'Nenhuma tabela aplicável à data. Não foram extrapoladas regras anteriores à observação ou fora da vigência.' }] } : {}),
     ...(whollyCustom ? { version: `shopee-br-custom-scenario-v01:${personalFrom}:${personalUntil}`, simulationFrom: personalFrom, simulationUntil: personalUntil } : {}),
     assumptions: [
-    ...(hasDocumentedCharge ? [{ id: 'shopee:validity', kind: 'validity' as const, message: 'Premissa: usar a tabela arquivada no cenário da captura, sem vigência inicial comprovada. Não é confirmação de repasse.' }] : []),
-    ...(cpfFixedConflict ? [{ id: 'shopee:cpf-fixed-precedence', kind: 'precedence' as const, message: 'Premissa CPF: priorizar R$4,50 da tabela do artigo 26839 apesar do trecho de R$4 no artigo 18484. A divergência textual continua sem esclarecimento oficial.' }] : []),
+    ...(hasDocumentedCharge && (selection?.mode !== 'effective' || table.effectiveUntil === null || saleDate > table.lastVerified) ? [{ id: 'shopee:validity', kind: 'validity' as const, message: `Premissa: simular com a tabela ${table.version}, verificada documentalmente em ${table.lastVerified}; ${selection?.mode === 'effective' ? 'período declarado, sem confirmação ao vivo de continuidade' : 'vigência não comprovada'}. A data do cenário não atualiza a verificação. Não é confirmação de repasse.` }] : []),
+    ...(cpfFixedConflict ? [{ id: 'shopee:cpf-fixed-precedence', kind: 'precedence' as const, message: `Premissa CPF: priorizar a parcela fixa da tabela ${table.version} diante da divergência entre fontes. Consulte ${table.review.reference}. A origem arquivada contém R$4 versus R$4,50; nenhuma seleção resolve esse conflito oficialmente.` }] : []),
     { id: 'shopee:rounding', kind: 'rounding', message: 'Premissa: HALF_UP por ocorrência; a política de arredondamento da Shopee não foi comprovada.' },
   ] };
 }

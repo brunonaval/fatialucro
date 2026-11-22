@@ -3,9 +3,11 @@ import type { PriceSolution } from '../engine';
 import { buildScenario, expenseBreakdown, numeric, text } from './model';
 import type { CalculatorDraft } from './model';
 import { parseBrazilianMoney } from '../engine/decimal';
+import { bundledTables } from '../marketplaces/catalogs/bundled';
+import type { ShopeeTable } from '../marketplaces/catalogs/types';
 
-export function calculateWorkspace(draft: CalculatorDraft) {
-  const { input, catalogAt } = buildScenario(draft);
+export function calculateWorkspace(draft: CalculatorDraft, tables: readonly ShopeeTable[] = bundledTables) {
+  const { input, catalogAt } = buildScenario(draft, tables);
   const catalog = catalogAt(input.unitPrice); const result = calculatePricing(input, catalog);
   const operation = text(draft, 'calculation');
   let solution: PriceSolution | null = null;

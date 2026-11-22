@@ -13,14 +13,14 @@ O acesso web automatizado inicial aos links oficiais retornou somente o contêin
 | Faixa regular abaixo de R$80 | 20% + R$4,50 por item | CPF ≥12 ou CNPJ ≥9; transação já incluída |
 | Acima de R$80 e abaixo de R$100 | 14% + R$16 por item | R$80 exato fica pendente |
 | Acima de R$100 e abaixo de R$200 | 14% + R$20 por item | R$100 exato fica pendente |
-| Acima de R$200 | 14% + R$26 por item | R$200 e R$500 exatos ficam pendentes |
+| Acima de R$200 | 14% + R$26 por item | R$200 exato fica pendente; R$500 comprovado pelo exemplo de R$96 |
 | CNPJ abaixo de R$9 | 20% + parcela equivalente a 50% do preço | Por item; interpretação da auditoria; arredondamento ainda não validado |
 | CPF acima de 450 pedidos/90 dias | R$3 por item | Apenas preço ≥12 e volume informado; incidência condicional |
 | Devolução Fácil | R$0,49 por pedido pago | Participação cobrável confirmada, fora da gratuidade |
 | Campanha de Destaque | 5% durante adesão | Todas as vendas da loja; sem extrapolar para outra campanha |
 | Transação | componente da comissão | Visível como excluída da soma, nunca acrescentada |
 
-Todas as fórmulas automáticas acima mantêm `effectiveFrom = null`: publicação/atualização não demonstram o início da vigência. O catálogo documental se restringe ao cenário de **22/11/2026**. No modo estrito, premissas não aceitas impedem concluir o resultado. Com aceitação explícita da vigência não comprovada e do HALF_UP por ocorrência, os trechos conhecidos podem gerar **simulação provisória**, lucro estimado e preço provisório. A aceitação não inventa faixas, fórmulas ou adesões. Uma futura evidência de vigência deve gerar novo snapshot e testes, sem apagar o anterior.
+Todas as fórmulas automáticas acima mantêm `effectiveFrom = null`: publicação/atualização não demonstram o início da vigência. O catálogo versionado seleciona períodos comprovados ou uma referência documental observada até a data, sempre sob premissa explícita quando falta vigência. A data atual não atualiza a verificação de **22/11/2026**. A revisão r1 foi arquivada e substituída pela r2; a seleção não ressuscita versões retiradas ou períodos encerrados. No modo estrito, premissas não aceitas impedem concluir o resultado. Com aceitação explícita da vigência não comprovada e do HALF_UP por ocorrência, os trechos conhecidos podem gerar **simulação provisória**, lucro estimado e preço provisório. A aceitação não inventa faixas, fórmulas ou adesões. Uma futura evidência de vigência deve gerar novo snapshot e testes, sem apagar o anterior.
 
 Na faixa comum CPF, o artigo 26839 e as tabelas trazem R$4,50, mas um trecho do artigo 18484 ainda menciona R$4. O usuário deve aceitar separadamente a premissa de priorizar a tabela de R$4,50; a divergência não foi resolvida oficialmente. O exemplo R$19,90 tem R$3,98 percentuais + R$4,50 por item = R$8,48 básicos, sem acrescentar transação.
 
@@ -32,13 +32,14 @@ O usuário pode substituir uma cobrança nomeada por percentual ou valor fixo, s
 
 Parâmetros para a comissão básica não eliminam silenciosamente o adicional CPF desconhecido. Na regressão CPF <12, a simulação exige também o adicional explícito. Adesões não confirmadas, cadastro ausente e frete não confirmado continuam bloqueantes. Programas ativos sem módulo automático só podem ser resolvidos com a cobrança correspondente informada explicitamente; para bases como antecipação efetiva, informar o valor apurado por pedido evita inventar uma base percentual.
 
-Somente um cenário com **todas as cobranças ativas personalizadas** e sem indeterminações pode usar o período pessoal fora da janela documental. É um cenário do usuário, não uma nova tarifa oficial nem um teste histórico. Cenários mistos não extrapolam as capturas. O solver preserva premissas de todos os preços examinados e interrompe regiões indeterminadas.
+Um cenário com **todas as cobranças ativas personalizadas** usa a interseção dos períodos pessoais, sem transformar parâmetros em tarifa oficial. Cenários mistos podem usar a referência arquivada sob premissa explícita de vigência/continuidade não comprovada, mantendo origem de cada parcela. A última verificação nunca é renovada por seleção ou consulta GitHub. O solver preserva premissas de todos os preços examinados e interrompe regiões indeterminadas.
 
 ## Regras adiadas ou indeterminadas
 
 - CPF abaixo de R$12: não interpolar exemplos de R$8/R$10; fórmula e relação com volume permanecem desconhecidas.
 - Exatamente 450 pedidos: redações divergentes; sem adicional presumido.
-- R$80, R$100, R$200 e R$500: não inventar os limites matemáticos.
+- R$80, R$100 e R$200: tabelas encerram faixas em 79,99/99,99/199,99 e usam acima de nos limites seguintes. Trechos inclusivos sobre subsidio/frete não demonstram a comissão exata. Continuam pendentes, sem inventar limites.
+- R$500: resolvido na r2. O exemplo oficial do artigo 18483 mostra comissão R$96 e líquido R$404 para cartão/boleto. A fórmula básica 14% + R$26 é calculável exatamente em 500; a retirada desse bloqueio não comprova adesões, vigência ou arredondamento.
 - Ads Fácil, afiliados e antecipação: participação ativa/desconhecida gera pendência explícita; fórmulas dependem de parâmetros e bases ainda não implementados. Participação inativa confirmada exclui o programa.
 - Ads por clique, moedas, devoluções e FSF/RSF, reembolso de amostras e outros ajustes: gastos/eventos efetivos, fora da tarifa padrão. O campo de outras despesas registra valores conhecidos sem classificá-los como tarifa oficial.
 - Retorno de R$15 e Devolução Fácil: não pressupor isenção de um pelo outro.
@@ -62,3 +63,7 @@ Cinco totais coincidem com os valores transcritos na auditoria. No pedido de R$7
 6. Extratos expandidos anonimizados para conciliar as linhas, especialmente a divergência histórica.
 
 Não publicar arquivos MHTML integrais, comprovantes, dados pessoais, cookies ou credenciais. Atualizações devem trazer URL oficial, captura, vigência comprovada, estado de verificação e regressão correspondente.
+
+## Revisão de tarifas e UX
+
+Veja a [política de versões e atualização](../tariffs-and-ux.md). Os originais de comissão foram relidos por processamento MIME e OCR local dos arquivos incorporados, sem interface gráfica, scraping ou captura de tela. Os hashes HTML continuam iguais. O hash do exemplo incorporado e a conclusão por fronteira ficam no registro sanitizado de evidências. Nenhum original/imagem foi publicado.

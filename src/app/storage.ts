@@ -2,6 +2,9 @@ import { calculatePricing } from '../engine';
 import type { SaleInput, TariffCatalog } from '../engine';
 import { buildScenario, validateDraft } from './model';
 import type { CalculatorDraft, SavedKind } from './model';
+import { loadTrustedPackage, preventRegression } from '../marketplaces/catalogs/update';
+import { parseManifest, parseTable } from '../marketplaces/catalogs/validation';
+import type { CatalogPackage } from '../marketplaces/catalogs/types';
 
 export interface SavedEntry {
   id: string; kind: SavedKind; name: string; updatedAt: string; draft: CalculatorDraft;
@@ -50,8 +53,11 @@ export class LocalRepository {
   private open(): Promise<IDBDatabase> {
     if (!this.connection) this.connection = new Promise((resolve, reject) => {
       let blocked = false;
-      const request = this.factory.open(this.name, 1);
-      request.onupgradeneeded = () => { request.result.createObjectStore('entries', { keyPath: 'id' }); };
+      const request = this.factory.open(this.name, 2);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains('entries')) request.result.createObjectStore('entries', { keyPath: 'id' });
+        if (!request.result.objectStoreNames.contains('settings')) request.result.createObjectStore('settings', { keyPath: 'id' });
+      };
       request.onerror = () => { this.connection = undefined; reject(request.error ?? new Error('Armazenamento local indisponível.')); };
       request.onblocked = () => { blocked = true; this.connection = undefined; reject(new Error('Banco local bloqueado por outra instância.')); };
       request.onsuccess = () => { const db = request.result; if (blocked) { db.close(); return; } db.onversionchange = () => { db.close(); this.connection = undefined; }; resolve(db); };
@@ -83,5 +89,36 @@ export class LocalRepository {
   remove(id: string) { return this.write([], id); }
   async export(): Promise<string> { const json = JSON.stringify({ version: 1, entries: await this.list() }, null, 2); decodeBackup(json); return json; }
   async import(json: string): Promise<void> { await this.write(decodeBackup(json)); }
+  async getSetting(id: string): Promise<unknown> {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('settings', 'readonly'); const request = tx.objectStore('settings').get(id);
+      tx.oncomplete = () => resolve((request.result as { data?: unknown } | undefined)?.data ?? null);
+      tx.onabort = () => reject(tx.error ?? new Error('Não foi possível ler as preferências.'));
+    });
+  }
+  async setTheme(theme: 'system' | 'light' | 'dark'): Promise<void> {
+    if (!['system', 'light', 'dark'].includes(theme)) throw new Error('Tema inválido.');
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('settings', 'readwrite'); tx.objectStore('settings').put({ id: 'theme', data: theme });
+      tx.oncomplete = () => resolve(); tx.onabort = () => reject(tx.error ?? new Error('Tema aplicado apenas nesta sessão: não foi salvo.'));
+    });
+  }
+  async activateCatalog(pkg: CatalogPackage): Promise<void> {
+    const next = await loadTrustedPackage(pkg); const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('settings', 'readwrite'); const store = tx.objectStore('settings'); const request = store.get('catalog-active');
+      tx.oncomplete = () => resolve(); tx.onabort = () => reject(tx.error ?? new Error('Catálogo não aplicado; cópia anterior preservada.'));
+      request.onsuccess = () => {
+        try {
+          const old = (request.result as { data: CatalogPackage } | undefined)?.data;
+          if (old) preventRegression({ manifest: parseManifest(old.manifestText), tables: Object.values(old.tableTexts).map(parseTable), package: old }, next);
+          store.put({ id: `catalog-archive-${next.manifest.releaseSequence}`, data: pkg });
+          store.put({ id: 'catalog-active', data: pkg });
+        } catch (error) { tx.abort(); reject(error); }
+      };
+    });
+  }
   async close() { if (this.connection) (await this.connection).close(); this.connection = undefined; }
 }

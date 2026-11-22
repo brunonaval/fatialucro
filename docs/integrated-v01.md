@@ -1,5 +1,7 @@
 # Entrega integrada 0.1 — 22/11/2026
 
+Registro da integração anterior. A revisão posterior de catálogos e interface está em [tarifas e UX](tariffs-and-ux.md), incluindo a resolução documental de R$500 e a seleção por versões.
+
 Branch `feat/pricing-engine-v01`, [PR #1](https://github.com/brunonaval/fatialucro/pull/1). O motor, as regressões anteriores e o histórico Git foram preservados. Não houve alteração em main, merge, release, build nativo ou execução de instalador nesta etapa.
 
 ## Construído e corrigido

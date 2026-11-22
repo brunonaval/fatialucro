@@ -21,11 +21,12 @@ describe('Shopee documental de novembro: sem certeza indevida', () => {
   it.each([['9.00', '6.30'], ['25.00', '9.50'], ['79.99', '20.50'], ['80.01', '27.20'], ['99.99', '30.00'], ['100.01', '34.00'], ['199.99', '48.00'], ['200.01', '54.00'], ['499.99', '96.00'], ['500.01', '96.00']])('documenta preço %s → subtotal %s', (price, expected) => {
     expect(calculate(price).knownMarketplaceFees).toBe(expected);
   });
-  it.each(['80', '100', '200', '500'])('bloqueia a borda exata %s', price => {
+  it.each(['80', '100', '200', '500'])('avalia evidência da borda exata %s', price => {
     const result = calculate(price);
-    expect(result.pending.some(line => line.id === 'shopee:price-boundary')).toBe(true);
+    expect(result.pending.some(line => line.id === 'shopee:price-boundary')).toBe(price !== '500');
     expect(result.marketplaceNet).toBeNull();
-    expect(result.fees).toHaveLength(0);
+    if (price === '500') expect(result.knownMarketplaceFees).toBe('96.00');
+    else expect(result.fees).toHaveLength(0);
   });
   it('distingue CNPJ abaixo de 9 e CPF abaixo de 12 sem interpolar', () => {
     expect(calculate('8').knownMarketplaceFees).toBe('5.60');
@@ -58,9 +59,9 @@ describe('Shopee documental de novembro: sem certeza indevida', () => {
     expect(result.fees.some(line => line.rule.id === 'shopee:commission')).toBe(false);
     expect(result.operatingProfit).toBeNull();
   });
-  it('não extrapola a captura para junho ou para o dia seguinte', () => {
+  it('não extrapola para antes da evidência e identifica referência no dia seguinte sem confirmação', () => {
     expect(calculate('25', standard, 1, '2026-06-15').fees).toHaveLength(0);
-    expect(calculate('25', standard, 1, '2026-11-23').fees).toHaveLength(0);
+    expect(calculate('25', standard, 1, '2026-11-23')).toMatchObject({ knownMarketplaceFees: '9.50', operatingProfit: null, confidence: 'indeterminate' });
   });
   it('registra adesões e frete desconhecidos em vez de zerá-los', () => {
     const result = calculate('25', { ...standard, adsEasy: 'active', affiliates: 'unknown', cashAdvance: 'active', shippingConfirmed: false });
