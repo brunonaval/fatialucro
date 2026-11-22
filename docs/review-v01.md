@@ -22,7 +22,7 @@ R$19,90 na faixa regular: R$3,98 percentuais + R$4,50 fixos = **R$8,48** básico
 
 ## Testes de código e interface
 
-- Todos os 75 testes anteriores preservados e passando; 25 novos casos, total **100 testes** em cinco arquivos.
+- Todos os 75 testes anteriores preservados e passando; 27 novos casos, total **102 testes** em cinco arquivos. Também foram validados estados ausentes/inválidos e fatos condicionais com tipo incorreto, que não podem virar exclusão silenciosa de cobrança.
 - Casos adicionais: múltiplas unidades, perdas, desconto, frete, programas, fronteiras, parâmetros explícitos, precedência CPF, arredondamento por unidade/pedido, períodos e classificação do preço inverso.
 - ESLint sem avisos, TypeScript estrito e build Vite passaram localmente.
 - Nove cenários funcionais no Edge headless passaram com o bundle de produção e CSP aplicada, sem erros JavaScript ou requisições externas observadas; largura de 390px também conferida.

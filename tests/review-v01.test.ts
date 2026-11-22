@@ -57,6 +57,15 @@ describe('distinção entre cálculo documentado, simulação provisória e inde
       expect(calculate({}, { ...context, ordersLast90Days }, { 'shopee:cpf-extra': manual({ formula: { kind: 'fixed', amount: '3' } }) }).status).toBe('complete');
     }
   });
+  it('não trata estado ausente ou confirmação textual inválida como opção inativa/confirmada', () => {
+    expect(() => calculate({}, { ...context, returnsProtection: undefined as unknown as ShopeeContext['returnsProtection'] })).toThrow('participação');
+    expect(() => calculate({}, { ...context, shippingConfirmed: 'false' as unknown as boolean })).toThrow('frete');
+  });
+  it('um fato com tipo incorreto continua pendente em vez de excluir a cobrança', () => {
+    const result = calculatePricing(sale({ facts: { eligible: 'false' } }), catalog([rule({ requirement: 'conditional', conditions: [{ key: 'eligible', equals: true }] })]));
+    expect(result.status).toBe('partial');
+    expect(result.excluded).toHaveLength(0);
+  });
   it('desconto deixa percentual e parcela dependente de faixa indeterminados', () => {
     const result = calculate({ unitPrice: '80.01', sellerDiscount: '1' });
     expect(result.fees).toHaveLength(0);

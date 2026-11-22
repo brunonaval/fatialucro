@@ -49,6 +49,11 @@ export function createShopeeCatalog(context: ShopeeContext, unitPrice: string, s
     throw new Error('A comissão básica obrigatória não pode ser eliminada zerando os dois componentes personalizados.');
   }
   if (context.seller !== null && context.seller !== 'CPF' && context.seller !== 'CNPJ') throw new Error('Perfil deve ser CPF ou CNPJ.');
+  if (!['inactive', 'trial', 'billable', 'unknown'].includes(context.returnsProtection) ||
+    [context.highlightCampaign, context.adsEasy, context.affiliates, context.cashAdvance].some(value => !['inactive', 'active', 'unknown'].includes(value))) {
+    throw new Error('Estado de participação inválido ou ausente; use desconhecido quando não houver confirmação.');
+  }
+  if (typeof context.shippingConfirmed !== 'boolean') throw new Error('Confirmação de frete inválida; use verdadeiro ou falso explicitamente.');
   if (context.ordersLast90Days !== null && (!Number.isSafeInteger(context.ordersLast90Days) || context.ordersLast90Days < 0)) {
     throw new Error('Pedidos em 90 dias deve ser inteiro não negativo ou desconhecido.');
   }

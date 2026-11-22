@@ -101,7 +101,11 @@ export function calculateFees(input: SaleInput, catalog: TariffCatalog, gross: D
       if (input.selections[id] === false) { excluded.push({ id, reason: 'Participação explicitamente desativada.' }); continue; }
       if (input.selections[id] !== true) { pending.push({ id, message: `Confirme a participação em ${rule.name}.` }); continue; }
     }
-    const conditions = rule.conditions.map(condition => input.facts[condition.key] === undefined ? undefined : input.facts[condition.key] === condition.equals);
+    const conditions = rule.conditions.map(condition => {
+      const actual = input.facts[condition.key];
+      // A malformed boolean/string fact is unknown, never proof of ineligibility.
+      return actual === undefined || typeof actual !== typeof condition.equals ? undefined : actual === condition.equals;
+    });
     if (conditions.includes(false)) { excluded.push({ id, reason: 'Condição de incidência não atendida.' }); continue; }
     if (conditions.includes(undefined)) { pending.push({ id, message: `Condição não informada para ${rule.name}.` }); continue; }
     candidates.push(rule);
