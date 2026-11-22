@@ -155,3 +155,21 @@ vite.config.ts.timestamp-*
 .nx/cache
 .nx/workspace-data
 .nx/migrate-runs
+
+# Desktop artifacts and local/private source material
+src-tauri/target/
+*.mhtml
+*.mht
+*.zip
+*.db
+*.sqlite
+*.sqlite3
+*.pem
+*.pfx
+*.p12
+AuditoriaShopee/
+
+# Only the two Windows shell icons are needed in this first stage.
+src-tauri/icons/*
+!src-tauri/icons/icon.png
+!src-tauri/icons/icon.ico

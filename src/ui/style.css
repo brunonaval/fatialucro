@@ -1,0 +1,24 @@
+:root { font: 16px/1.5 system-ui, sans-serif; color: #172f2b; background: #f6f7f5; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 1080px; margin: 0 auto; padding: 24px; }
+h1 small { font-size: 1rem; font-weight: 400; }
+fieldset, section, details { border: 1px solid #bac9c4; border-radius: 6px; padding: 16px; margin: 16px 0; background: #fff; }
+legend, summary { font-weight: 600; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+label { display: flex; flex-direction: column; gap: 4px; }
+input, select, button { font: inherit; padding: 9px; border: 1px solid #829b93; border-radius: 4px; width: 100%; }
+button { width: auto; background: #185c49; color: #fff; margin-top: 8px; padding: 12px 24px; cursor: pointer; }
+summary { cursor: pointer; }
+.check { display: flex; flex-direction: row; align-items: center; margin-top: 16px; }
+.check input { width: auto; }
+.notice { background: #fff4d9; border-left: 4px solid #ad7414; padding: 12px; }
+dl { display: grid; grid-template-columns: 2fr 1fr; gap: 8px 16px; }
+dt, dd { margin: 0; padding: 4px; border-bottom: 1px solid #d8e0dc; }
+dd { font-variant-numeric: tabular-nums; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 8px; border-bottom: 1px solid #d8e0dc; }
+.table-scroll { overflow-x: auto; }
+a { color: #185c49; }
+footer { margin-top: 32px; color: #49625b; }
+@media (max-width: 600px) { main { padding: 12px; } dl { grid-template-columns: 1fr; } dd { padding-bottom: 12px; } }
