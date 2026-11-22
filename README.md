@@ -1,50 +1,57 @@
 # FatiaLucro
 
-Calculadora gratuita, pública e offline de precificação para impressão 3D. Primeira implementação do motor financeiro, com demonstrativo de cada cobrança e esqueleto Windows em Tauri 2, React e TypeScript. Licença MIT.
+Precificação local de impressão 3D, com custos de produção, simulações de venda direta e Shopee Brasil. Tauri 2 + React + TypeScript, motor decimal independente e licença MIT. Versão **0.1.0 integrada**, ainda aguardando homologação gráfica e de distribuição. Sem servidor, conta online ou telemetria.
 
-**Estado 0.1:** custos de fabricação, embalagem, descontos, frete líquido, taxas fixas/percentuais, faixas, condições, exclusão de duplicatas, lucro operacional estimado, margem, markup e busca inversa em centavos. Sem servidor, conta, IA, telemetria ou persistência nesta etapa.
+## Usar a calculadora
 
-A Shopee tem uma **base documental de 22/11/2026**, não uma tabela homologada. A V0.1 revisada distingue cálculo documental, **simulação provisória com premissas aceitas ou parâmetros personalizados**, e cobranças indeterminadas que bloqueiam a conclusão. Vigência, arredondamento e precedência CPF são premissas explícitas; fórmulas desconhecidas nunca recebem zero automaticamente. O lucro e a busca inversa respeitam essa classificação. Uma venda direta sem marketplace é uma escolha explícita.
+1. Informe um produto ou selecione um `.3mf` fatiado do Bambu Studio / G-code textual compatível. Escolha uma placa e clique em **Aplicar placa à produção**. A leitura é local; não há envio de arquivos.
+2. Confira peso, tempo e peças produzidas. No modo lote, esses valores são totais da placa; no modo unidade, descrevem uma peça. A quantidade vendida é independente. Materiais importados precisam de preço por kg explícito ou perfil salvo.
+3. Escolha custo completo por hora **ou** energia, manutenção e depreciação. Trabalho manual, reserva de falhas e consumíveis aceitam zero. Embalagem pode ser por unidade e/ou pedido.
+4. Escolha venda direta ou Shopee. Para Shopee, configure CPF/CNPJ, adesões e frete; leia as premissas e pendências. Nenhum enquadramento é presumido.
+5. Informe preço e unidades vendidas, ou escolha lucro desejado por pedido, margem, ponto de equilíbrio ou comparação. Clique em **Calcular cenário**. Margem `0,20` significa 20%; preços comparados são separados por ponto e vírgula, por exemplo `15; 19,90; 25`.
+6. Salve produto, impressora, filamento, custos de produção, configuração do marketplace ou simulação. **Cadastros** aplica perfis reutilizáveis; **Histórico** reabre entradas e catálogo original da simulação. Recalcular utiliza as regras atuais; buscas e comparações são executadas novamente.
 
-O cadastro começa vazio: cada vendedor escolhe CPF ou CNPJ. Parâmetros avançados são expansíveis. Comissão básica obrigatória não pode ser desativada; programas opcionais têm controles independentes. A interface identifica resultados provisórios e nunca os apresenta como repasses confirmados.
+Os valores iniciais são exemplos editáveis. Entradas aceitam `19,90` ou `19.90`, sem separadores de milhar. Alterar qualquer entrada sinaliza resultado desatualizado. Não se deve somar frete ou publicidade já incluídos em outro componente.
 
-## Executar
+## O que é calculado
 
-Leia os [pré-requisitos](docs/prerequisites.md) antes de instalar. Node.js 24 LTS:
+- Filamento por material, energia, máquina, manutenção, depreciação, mão de obra, reservas e embalagens; custo por peça, produção completa e unidades vendidas.
+- Taxas individualizadas com fórmula, incidência, base, versão, documentação e limitações; desconto do vendedor, frete líquido, publicidade informada e outras despesas.
+- Repasse **simulado**, lucro operacional estimado, margem e markup; alertas de prejuízo e margem baixa configurável.
+- Busca exaustiva em centavos para lucro/margem/equilíbrio, até 100 mil candidatos dentro do intervalo informado, respeitando mudanças de faixa e regiões desconhecidas. Comparação de até 20 preços.
+
+A Shopee usa a auditoria e os MHTML arquivados conferidos em 22/11/2026. A classificação separa fórmulas documentadas, **simulações provisórias com premissas ou valores personalizados**, e cobranças indeterminadas que bloqueiam líquido e lucro. Aceitar premissas não resolve adesões ou fórmulas ausentes. A comissão básica obrigatória não pode ser desligada; programas opcionais têm controles independentes. Percentuais e fixos manuais exigem incidência, base, origem e período. Nenhum resultado é recebimento confirmado.
+
+Na faixa regular, R$ 19,90 gera R$ 3,98 + R$ 4,50 = **R$ 8,48 de comissão básica**, com transação incluída. Regressão CPF, fronteiras exatas, vigência, arredondamento e bases após desconto conservam as limitações documentais. A divergência histórica de R$ 0,05 foi preservada. Consulte o [registro Shopee](docs/shopee/README.md).
+
+## Arquivos e dados locais
+
+O importador lê estimativas declaradas, sem fatiar geometria, executar G-code ou converter comprimento em massa por densidade presumida. Um 3MF geométrico pode não trazer peso/tempo/quantidade: use **Preparar preenchimento manual**. Algumas contagens vêm de instâncias do modelo e precisam corresponder a peças comerciais equivalentes. Placas e materiais são separados. Limites: 3MF 100 MB, G-code textual 20 MB, metadados XML/JSON 2 MB por entrada, 32 materiais. ZIP64, arquivos criptografados e G-code binário não são suportados. [Formato e limitações](docs/imports-and-storage.md).
+
+Cadastros usam **IndexedDB local**, sem dependência nativa adicional. São próprios da origem e do perfil do aplicativo: desenvolvimento e desktop não compartilham automaticamente os dados. Exporte o **backup JSON** antes de limpar dados, trocar de instalação ou desinstalar. Importações de backup são validadas e transacionais; IDs iguais são substituídos, outros registros são mantidos. Não há sincronização, criptografia própria ou cópia de segurança automática. Um arquivo importado não fica armazenado integralmente no histórico.
+
+## Desenvolvimento e validação
+
+Node.js 24 LTS; veja os [pré-requisitos](docs/prerequisites.md).
 
 ```powershell
 npm ci
-npm run dev
-```
-
-A interface de desenvolvimento abre em `http://127.0.0.1:1420`. Aceita valores como `19,90` ou `19.90`, sem separador de milhar.
-
-```powershell
-npm run check        # lint,  testes, TypeScript e build web
-npm run typecheck
-npm test
+npm run check        # lint, testes, TypeScript e build web, sem abrir janelas
 npm audit --audit-level=high
 ```
 
-Para desktop, também instale Rust stable MSVC e os pré-requisitos do Windows:
+Para desenvolvimento interativo em uma etapa autorizada: `npm run dev` serve em `http://127.0.0.1:1420`; não abre o navegador automaticamente. Desktop exige Rust stable MSVC, ferramentas C++ e WebView2; `npm run tauri -- dev` abre a aplicação. Esses comandos interativos **não foram executados nesta etapa**.
 
-```powershell
-npm run tauri -- dev
-npm run tauri -- build -- --locked
-```
+GitHub Actions executa validação leve em PR. Instalador Windows é opcional: execução manual do workflow, na branch de desenvolvimento, com `build_windows = true` somente quando solicitado. Artefatos experimentais duram três dias. Não há publicação automática de release. O instalador requer WebView2 existente e ainda não tem assinatura digital.
 
-O instalador gerado requer WebView2 já instalado. Rust não é necessário no computador de quem utiliza o instalador. GitHub Actions valida o projeto e gera um instalador Windows x64 como artefato de revisão, sem publicar releases.
+## Organização
 
-## Estrutura e documentação
+- `src/engine`: cálculos decimais, tarifas, fabricação e análises.
+- `src/marketplaces`: adaptadores e fontes versionadas.
+- `src/importers`: leitura local limitada de metadados e worker.
+- `src/app`: modelo de formulário, composição dos cálculos, worker e persistência.
+- `src/ui`: calculadora, cadastros, histórico e demonstrativos.
+- `src-tauri`: shell e empacotamento Windows.
+- `tests`: regressões financeiras, importadores e IndexedDB em Node.
 
-- `src/engine`: núcleo independente, cálculos decimais, demonstrativo e solver.
-- `src/marketplaces`: catálogos e adaptação às condições de cada marketplace.
-- `src/ui`: formulário mínimo, resultados e fontes.
-- `src-tauri`: shell Windows e configuração de empacotamento.
-- `tests`: testes unitários, invariantes e regressões históricas isoladas.
-- [Arquitetura e convenções financeiras](docs/architecture.md).
-- [Shopee: proveniência, implementações e pendências](docs/shopee/README.md).
-- [Relatório da entrega](docs/implementation-report-v01.md).
-- [Revisão da V0.1 antes do merge](docs/review-v01.md).
-
-Valores monetários entram como strings decimais. Nunca use uma taxa desconhecida como zero nem trate resultado parcial como lucro confirmado. O cálculo é operacional; tributos não informados e eventos não modelados devem ser avaliados separadamente.
+[Relatório integrado e prontidão](docs/integrated-v01.md) · [Arquitetura](docs/architecture.md) · [Referências e licenças](docs/references.md) · [Revisão financeira anterior](docs/review-v01.md).

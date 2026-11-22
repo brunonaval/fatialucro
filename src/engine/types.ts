@@ -67,6 +67,10 @@ export interface TariffCatalog {
 }
 
 export interface ManufacturingInput {
+  // Existing callers keep per-unit semantics. Batch totals are allocated explicitly.
+  basis?: 'unit' | 'batch';
+  piecesPerBatch?: number;
+  materials?: readonly { id: string; name: string; grams: string; pricePerKg: string }[];
   grams: string;
   filamentPerKg: string;
   printHours: string;
@@ -87,6 +91,7 @@ export interface CostLine {
   perUnit: string;
   quantity: number;
   total: string;
+  allocation?: { piecesPerBatch: number; roundedBatchCost: string };
 }
 
 export interface SaleInput {

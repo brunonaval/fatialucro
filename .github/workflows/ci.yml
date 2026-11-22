@@ -5,6 +5,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      build_windows:
+        description: 'Gerar instalador Windows para homologação (somente quando solicitado)'
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: validate-${{ github.event.pull_request.head.ref || github.ref_name }}
@@ -27,6 +33,7 @@ jobs:
       - run: npm audit --audit-level=high
 
   windows:
+    if: github.event_name == 'workflow_dispatch' && inputs.build_windows
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -59,3 +66,4 @@ jobs:
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/Cargo.lock
           if-no-files-found: error
+          retention-days: 3

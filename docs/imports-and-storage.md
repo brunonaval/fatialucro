@@ -1,0 +1,25 @@
+# Importação e dados locais
+
+## Leitura de impressão
+
+`importPrintFile` recebe bytes e nome de arquivo; não acessa rede nem grava arquivos. A interface transfere o `ArrayBuffer` para um worker, liberado ao terminar, falhar ou desmontar o componente. Importar outra seleção invalida uma leitura anterior. O usuário escolhe a placa e aplica suas informações; a quantidade vendida e os custos de máquina continuam independentes.
+
+3MF é lido como ZIP. Somente `Metadata/slice_info.config`, `model_settings.config`, `project_settings.config` e G-codes `plate_N` são expandidos. Geometrias, miniaturas e outros conteúdos são ignorados. São rejeitados caminhos perigosos, entradas repetidas, diretório incompleto, XML inválido, DTD/entidades, metadados conflitantes, arquivos criptografados e ZIP64. Há limites de 100 MB comprimidos, 5.000 entradas, 2 MB por configuração, 20 MB por G-code, 48 MB expandidos e profundidade/complexidade de objetos XML. Não há extração em disco.
+
+O formato Bambu suportado identifica placas por `index`, tempo por `prediction` em segundos, filamentos por `used_g`/`type`, impressora/material do JSON do projeto e quantidade por `object_count`/`number_of_objects` ou instâncias da placa em `model_settings`. Instâncias são somente uma estimativa de peças: conjuntos, suportes, peças comerciais diferentes e objetos compostos exigem conferência. Não há distribuição automática entre SKUs diferentes. Metadados de fatiamento têm precedência sobre o G-code interno; este serve como alternativa quando não há placas compatíveis. Nenhuma massa/tempo é deduzida da geometria.
+
+G-code textual aceita comentários de tempo Bambu/Prusa/Orca (`estimated printing time`, `model printing time`, unidades d/h/m/s), Cura `TIME` em segundos, massa declarada em `[g]`, nomes de material/impressora e contagem explícita de objetos. Cabeçalhos conflitantes deixam o campo ausente. Massa total e massas por ferramenta precisam concordar quando ambas existem. Não se integram movimentos/extrusão e não se presume diâmetro/densidade. Outros dialetos, formatos binários ou metadados ausentes permanecem manuais.
+
+Aplicar uma placa limpa preços por kg; nenhum preço vem de um arquivo de fatiamento. Dados ausentes viram campos vazios, nunca zero nem valores anteriores. A produção não calcula enquanto faltarem dados usados. Um arquivo apenas geométrico oferece preparação manual, que limpa peso, tempo e quantidade. Não há impressão nem execução de comandos G-code.
+
+Testes usam arquivos ZIP/XML/G-code sintéticos gerados em memória. **Arquivos reais de usuários e compatibilidade com diferentes versões do Bambu Studio ainda precisam de homologação**; não foram fornecidos arquivos reais nesta etapa. Os importadores não garantem autenticidade de metadados: são estimativas do fatiador, não medições ou comprovantes.
+
+## IndexedDB e backup
+
+Banco `fatialucro-local-v1`, versão 1, object store `entries`. Cada registro tem ID, categoria, nome, data ISO e formulário serializável com materiais. Categorias: produto, impressora, filamento, produção, marketplace e simulação. Campos não conhecidos/tipos incompatíveis são rejeitados. Cadastros podem guardar preenchimentos ainda incompletos; o cálculo valida os valores efetivamente usados.
+
+Produtos restauram o formulário inteiro; impressoras, filamentos, produção e marketplaces aplicam somente seus campos. Materiais importados aceitam perfis de filamento por linha. Salvar uma simulação exige cálculo atual, sem alterações pendentes, e conserva entradas normalizadas e catálogo completo. Reabrir calcula o demonstrativo com esse snapshot, sem trocar o catálogo pelo atual. Formulário e entradas salvas são conferidos. Recalcular é uma nova operação com as regras atuais. Resultados de busca/comparações não ficam congelados: podem ser executados novamente. Cada salvamento cria novo registro, removível na lista.
+
+Backup JSON: `{ "version": 1, "entries": [...] }`, até 12 MB/5.000 registros, IDs únicos, verificação estrutural e de coerência dos snapshots. Chaves de protótipo e profundidade excessiva são rejeitadas. Uma importação valida todos os registros antes da escrita; uma única transação aplica o conjunto. Qualquer falha aborta o lote, inclusive erro síncrono de quota. IDs existentes são atualizados; outros são preservados. Exportar/ler falhas de armazenamento não é apresentado como sucesso. Testes usam a API IndexedDB emulada em Node para salvar, fechar, reabrir, exportar, restaurar e abortar transações.
+
+O armazenamento depende do perfil do WebView/navegador e de sua origem. Não é um arquivo SQLite compartilhado, não tem criptografia própria, sincronização ou backup automático; sua persistência real no WebView2 e o download/restauro do JSON no desktop estão pendentes de homologação gráfica. A escolha evita plugins nativos e novas permissões de filesystem. O conteúdo integral do arquivo de impressão não é salvo; apenas campos aplicados. Nomes/custos pertencem ao usuário e ficam fora do Git. Nenhum arquivo privado ou documentação integral de terceiros foi incluído nos testes.

@@ -1,36 +1,48 @@
-import { useState } from 'react';
+import { createContext, useContext } from 'react';
+import type { ReactNode } from 'react';
+import type { CalculatorDraft } from '../app/model';
 
-export function Field({ name, label, initial = '0', decimal = false }: { name: string; label: string; initial?: string; decimal?: boolean }) {
-  return <label>{label}<input name={name} defaultValue={initial} inputMode="decimal" required pattern={decimal ? '[0-9]+([,.][0-9]{1,12})?' : '[0-9]+([,.][0-9]{1,2})?'} /></label>;
+export const FormContext = createContext<{ draft: CalculatorDraft; setField: (name: string, value: string | boolean) => void } | null>(null);
+export function useForm() { const context = useContext(FormContext); if (!context) throw new Error('Formulário indisponível.'); return context; }
+export function Input({ name, label, type = 'text', required = true }: { name: string; label: string; type?: string; required?: boolean }) {
+  const { draft, setField } = useForm();
+  return <label>{label}<input type={type} name={name} value={String(draft.fields[name] ?? '')} onChange={event => setField(name, event.target.value)} required={required} maxLength={2000} /></label>;
 }
-
+export function Select({ name, label, children }: { name: string; label: string; children: ReactNode }) {
+  const { draft, setField } = useForm();
+  return <label>{label}<select name={name} value={String(draft.fields[name] ?? '')} onChange={event => setField(name, event.target.value)}>{children}</select></label>;
+}
+export function Check({ name, children }: { name: string; children: ReactNode }) {
+  const { draft, setField } = useForm();
+  return <label className="check"><input type="checkbox" name={name} checked={draft.fields[name] === true} onChange={event => setField(name, event.target.checked)} />{children}</label>;
+}
+export function Field({ name, label, decimal = false }: { name: string; label: string; decimal?: boolean }) {
+  const { draft, setField } = useForm();
+  return <label>{label}<input name={name} value={String(draft.fields[name] ?? '')} onChange={event => setField(name, event.target.value)} inputMode="decimal" required pattern={decimal ? '[0-9]+([,.][0-9]{1,12})?' : '[0-9]+([,.][0-9]{1,2})?'} /></label>;
+}
 export function ScopeField({ name, label }: { name: string; label: string }) {
-  return <label>{label}<select name={name} defaultValue="" required><option value="">Selecione a incidência</option><option value="item">Por unidade vendida</option><option value="order">Uma vez por pedido</option></select></label>;
+  return <Select name={name} label={label}><option value="">Selecione a incidência</option><option value="item">Por unidade vendida</option><option value="order">Uma vez por pedido</option></Select>;
 }
-
 export function BaseField({ name }: { name: string }) {
-  return <label>Base do percentual personalizado<select name={name} defaultValue="" required><option value="">Selecione a base</option><option value="gross-sales">Receita bruta, antes do desconto do vendedor</option><option value="after-seller-discount">Receita após desconto do vendedor</option></select></label>;
+  return <Select name={name} label="Base do percentual personalizado"><option value="">Selecione a base</option><option value="gross-sales">Receita bruta, antes do desconto do vendedor</option><option value="after-seller-discount">Receita após desconto do vendedor</option></Select>;
 }
-
 export function ManualFeeFields({ id, label }: { id: string; label: string }) {
-  const [enabled, setEnabled] = useState(false);
-  const [kind, setKind] = useState('fixed');
+  const { draft } = useForm(); const kind = draft.fields[`${id}:kind`];
   return <details><summary>Parâmetro personalizado — {label}</summary>
-    <label className="check"><input type="checkbox" name={`${id}:manual`} checked={enabled} onChange={event => setEnabled(event.target.checked)} /> Substituir esta cobrança por parâmetro informado por mim</label>
-    {enabled && <div className="fields">
-      <label>Fórmula personalizada<select name={`${id}:kind`} value={kind} onChange={event => setKind(event.target.value)}><option value="fixed">Valor fixo em reais</option><option value="percentage">Percentual da base selecionada</option></select></label>
-      <Field key={kind} name={`${id}:value`} label={kind === 'fixed' ? 'Valor fixo personalizado (R$)' : 'Percentual personalizado (%)'} initial="" decimal={kind === 'percentage'} />
+    <Check name={`${id}:manual`}>Substituir esta cobrança por parâmetro informado por mim</Check>
+    {draft.fields[`${id}:manual`] === true && <div className="fields">
+      <Select name={`${id}:kind`} label="Fórmula personalizada"><option value="fixed">Valor fixo em reais</option><option value="percentage">Percentual da base selecionada</option></Select>
+      <Field name={`${id}:value`} label={kind === 'fixed' ? 'Valor fixo personalizado (R$)' : 'Percentual personalizado (%)'} decimal={kind === 'percentage'} />
       <ScopeField name={`${id}:scope`} label="Incidência personalizada" />
-      {kind === 'percentage' ? <BaseField name={`${id}:base`} /> : <input type="hidden" name={`${id}:base`} value="gross-sales" />}
-      <label>Origem ou motivo da premissa<input name={`${id}:reference`} required maxLength={500} placeholder="Sem dados pessoais, pedidos ou credenciais" /></label>
+      <BaseField name={`${id}:base`} />
+      <Input name={`${id}:reference`} label="Origem ou motivo da premissa (sem informações privadas)" />
     </div>}
-    <p>O valor será identificado como personalizado, sem validação oficial. Zero só é aceito se informado explicitamente. Para antecipação ou outras bases não modeladas, informe o custo apurado como valor fixo por pedido.</p>
+    <p>Origem personalizada, sem validação oficial. Zero exige preenchimento explícito. Para uma base ainda não modelada, informe o custo apurado como valor fixo por pedido.</p>
   </details>;
 }
-
 export function ParticipationField({ name, label, ruleId }: { name: string; label: string; ruleId: string }) {
-  const [value, setValue] = useState('unknown');
-  return <div><label>{label}<select name={name} value={value} onChange={event => setValue(event.target.value)}><option value="unknown">Não confirmado</option><option value="inactive">Sem participação</option><option value="active">Participação ativa na data</option></select></label>
-    {value === 'active' && <ManualFeeFields id={ruleId} label={label} />}
+  const { draft } = useForm();
+  return <div><Select name={name} label={label}><option value="unknown">Não confirmado</option><option value="inactive">Sem participação</option><option value="active">Participação ativa na data</option></Select>
+    {draft.fields[name] === 'active' && <ManualFeeFields id={ruleId} label={label} />}
   </div>;
 }

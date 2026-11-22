@@ -1,6 +1,6 @@
 # Relatório de implementação 0.1 — 22/11/2026
 
-Registro da primeira execução. Para as correções, novas evidências, testes do instalador e decisão de prontidão, consulte a [revisão da V0.1](review-v01.md). Na revisão posterior foram localizados os MHTML fora do diretório de referências inicialmente inspecionado.
+Registro histórico da primeira execução; descreve o estado inicial, não as funcionalidades atuais. Para a entrega atual, consulte o [relatório integrado](integrated-v01.md) e a [revisão financeira](review-v01.md). Na revisão posterior foram localizados os MHTML fora do diretório de referências inicialmente inspecionado.
 
 Checkout: `C:\Projetos\FatiaLucro`, repositório `brunonaval/fatialucro`, branch `feat/pricing-engine-v01`. A base encontrada continha apenas README, licença MIT e gitignore, com um commit inicial. Não foram encontrados arquivos AGENTS.md aplicáveis. Nenhuma alteração foi feita diretamente em main.
 

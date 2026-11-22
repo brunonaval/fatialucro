@@ -2,6 +2,8 @@
 
 Escopo: corrigir e validar a V0.1 no PR #1, branch `feat/pricing-engine-v01`. A versão continua 0.1.0. O histórico Git foi preservado; não houve merge, mudança em main ou publicação de release.
 
+Este documento registra a revisão financeira anterior à integração. A entrega atual e sua metodologia exclusivamente por terminal estão no [relatório integrado](integrated-v01.md). Testes gráficos anteriores não homologam o código integrado.
+
 ## Problemas encontrados e corrigidos
 
 1. O estado único de pendência tornava toda simulação Shopee incompleta. Foram separados indeterminações bloqueantes e premissas passíveis de aceitação explícita. `status` indica completude; `confidence` indica cálculo documental, provisório ou indeterminado; repasses nunca são declarados confirmados.
@@ -26,16 +28,22 @@ R$19,90 na faixa regular: R$3,98 percentuais + R$4,50 fixos = **R$8,48** básico
 - Casos adicionais: múltiplas unidades, perdas, desconto, frete, programas, fronteiras, parâmetros explícitos, precedência CPF, arredondamento por unidade/pedido, períodos e classificação do preço inverso.
 - ESLint sem avisos, TypeScript estrito e build Vite passaram localmente.
 - Nove cenários funcionais no Edge headless passaram com o bundle de produção e CSP aplicada, sem erros JavaScript ou requisições externas observadas; largura de 390px também conferida.
-- CI e teste interativo do instalador: em execução; resultados serão consolidados antes da entrega.
+- CI Linux/Windows e instaladores anteriores passaram, conforme registros abaixo. Isso não é validação de instalador para a integração posterior.
 
 ## Testes Windows
 
-Em execução nesta revisão. Nenhum teste ainda não realizado deve ser interpretado como aprovado. O instalador de revisão será identificado pelo commit e SHA-256; os resultados de instalação, abertura, cálculos, offline, WebView2 e desinstalação serão registrados aqui.
+Antes da nova diretriz sem interface gráfica, foram realizados instalação/abertura e cálculos nativos na revisão `ee33223`, build [45060050724](https://github.com/brunonaval/fatialucro/actions/runs/45060050724), SHA-256 do NSIS `9C8767171E9DFD9297FFE19337C8DDBAEE70127D1D5517D0AEFF5C656A447869`.
+
+Passaram naquele binário: venda direta R$19,90 com lucro R$14,53; alteração para R$25 e recálculo R$19,63; CPF com comissão básica R$8,48 e lucro provisório R$6,05 sob premissas; busca de lucro R$5 encontrando R$18,59 no intervalo R$12–100; CNPJ com duas unidades e Devolução Fácil somada uma vez por pedido (tarifas R$17,45). Dados eram sintéticos, sem acesso a conta pessoal ou comprovantes.
+
+A revisão seguinte `579e389`, build [45061529373](https://github.com/brunonaval/fatialucro/actions/runs/45061529373), NSIS SHA-256 `86328F312A840CD84969AC92C6E70C89843B1C0D9999E579FF9416B41AECDC2D`, foi instalada/aberta. A confirmação final do novo rótulo de incidência não foi concluída. A cópia de teste instalada ficou preservada com a mudança de metodologia.
+
+**Pendentes:** inicialização nativa offline, funcionamento sem WebView2 e desinstalação. WebView2 estava instalado no host; não foi removido. Houve teste anterior de UI web após carga inicial com rede emulada offline, que não comprova inicialização nativa offline. Uma tentativa de processo com proxy inválido foi bloqueada pela revisão automática de política e não chegou a executar; não é teste aprovado. Nenhum desses testes foi retomado após a proibição de interação gráfica.
 
 ## Limites e prontidão
 
-Sem persistência, importação de extratos/fatiadores, múltiplos SKUs, determinação de tributos ou módulos automáticos de todos os programas. Um parâmetro personalizado é premissa, não prova de tarifa oficial. O solver continua limitado a 100.000 preços e é síncrono.
+Limitações financeiras mantidas: sem múltiplos SKUs, determinação automática de tributos ou fórmulas automáticas de todos os programas. Um parâmetro personalizado é premissa, não prova de tarifa oficial. A integração posterior acrescentou persistência, importação de fatiadores e execução do solver em worker; consulte o relatório atual. Não há importação/conciliação automática de extratos.
 
-**Merge técnico:** avaliação final pendente da execução Windows e CI desta revisão.
+**Merge técnico:** a entrega integrada tem avaliação própria no relatório atual. Os testes históricos acima não aprovam o binário novo.
 
 **Lançamento público:** não aprovado nesta revisão enquanto os testes de distribuição e as limitações documentais não forem avaliados separadamente. Uma simulação provisória utilizável não é homologação financeira nem confirmação de recebimentos.
