@@ -12,7 +12,7 @@ import type { ImportedPlate, PrintImport } from '../importers';
 import { applyPlate, restoreProfile } from './model';
 import { profileSignature } from './ux-v3';
 
-export const initialExperience = (): ExperienceState => ({ version: 2, entry: 'none', intent: 'cost', mode: 'simple', stage: 'print', filament: { mode: 'spool', amount: '', netGrams: '' }, packaging: { mode: 'unit', amount: '', units: '' }, machineIncluded: true, wearIncluded: false, labor: 'excluded', packagingIncluded: false, extrasIncluded: false, saleUnit: 'piece', partsPerKit: '', shipping: 'unknown', volume: { answer: 'unknown', threshold: null, date: '' } });
+export const initialExperience = (): ExperienceState => ({ version: 2, entry: 'none', intent: 'cost', mode: 'simple', stage: 'print', filament: { mode: 'spool', amount: '', netGrams: '' }, packaging: { mode: 'unit', amount: '', units: '' }, machineIncluded: true, wearIncluded: false, labor: 'excluded', packagingIncluded: false, extrasIncluded: false, saleUnit: 'piece', partsPerKit: '', discountIncluded: false, otherCostsIncluded: false, directShippingIncluded: false, shipping: 'unknown', volume: { answer: 'unknown', threshold: null, date: '' } });
 export function newCalculationDraft(now = new Date()): CalculatorDraft {
   const draft = defaultDraft(now);
   for (const key of ['price', 'quantity', 'pieces', 'grams', 'filament', 'hours', 'machine', 'watts', 'kwh', 'materialName', 'printerName', 'targetProfit', 'targetMargin', 'comparison', 'printerLife', 'printerPurchase', 'laborMinutes', 'laborHour', 'maintenance', 'depreciation', 'consumables', 'failure', 'packagingUnit', 'packagingOrder']) draft.fields[key] = '';

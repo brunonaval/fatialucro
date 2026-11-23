@@ -18,6 +18,9 @@ export interface ExperienceState {
   materialIncluded?: boolean;
   packagingDecision?: 'include' | 'exclude' | 'unknown';
   packagingExtraIncluded?: boolean;
+  discountIncluded?: boolean;
+  otherCostsIncluded?: boolean;
+  directShippingIncluded?: boolean;
   programDeclaration?: { answer: 'none' | 'some' | 'unknown'; date: string; programs: string[] };
   persistentPrograms?: string[];
   assumptionReview?: { date: string; tableId: string; accepted: string[] };

@@ -13,6 +13,14 @@ A UX V4 está em andamento na branch experimental do PR #1. A versão instalada 
 - Redução de mensagens prematuras ao editar valores numéricos.
 - O preço e as tarifas da Shopee continuam sujeitos às mesmas regras de comprovação. O painel não presume taxas, frete nem consumos desconhecidos.
 
+## Incremento: despesas opcionais da venda sem bloqueios ocultos
+
+- Desconto do vendedor, despesas adicionais e frete líquido da venda direta agora são escolhas explícitas e desativadas por padrão nos cálculos novos. Se não selecionados, os campos não são exigidos e as exclusões permanecem visíveis no resumo.
+- Ao desativar a opção, o valor digitado é preservado no formulário, mas não entra no cenário. Ao reativar, o valor volta a ser conferido.
+- Rascunhos anteriores que não tinham esses indicadores preservam os custos previamente registrados.
+- A validação guiada usa a mesma condição de ativação usada para montar o cenário financeiro. O botão Corrigir também encontra campos do modo avançado, e a contagem de peças de um kit agora tem nome identificável.
+- Testes adicionais verificam opção desmarcada, campos obrigatórios ao ativar e retrocompatibilidade.
+
 ## Pendências (não confundir com funcionalidade entregue)
 
 - Homologação visual no Windows/WebView2 por usuário real, incluindo rolagem e foco de campos em painéis.

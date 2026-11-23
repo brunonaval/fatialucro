@@ -4,10 +4,13 @@ import { newCalculationDraft, applyImportedPlate, calculateExperience } from '..
 import { guidedIssues } from '../src/ui/guided-validation';
 import { GuidedIssues } from '../src/ui/GuidedIssues';
 import { normalizeNumeric, numericIssue } from '../src/ui/format';
-import { packagingInput } from '../src/app/model';
+import { expenseBreakdown, packagingInput, saleExtraSelected } from '../src/app/model';
 import { parseThreeMf } from '../src/importers/three-mf';
 import { strToU8, zipSync } from 'fflate';
 import { App } from '../src/ui/App';
+import { SaleStep } from '../src/ui/SaleStep';
+import { FormContext } from '../src/ui/Fields';
+import { ExperienceContext } from '../src/ui/ExperienceContext';
 const archive = (files: Record<string, string>) => zipSync(Object.fromEntries(Object.entries(files).map(([name, value]) => [name, strToU8(value)])));
 
 describe('UX V4: primeira impressão e validação assistida', () => {
@@ -59,6 +62,42 @@ describe('UX V4: primeira impressão e validação assistida', () => {
     expect(draft.materials).toEqual([]);
     expect(draft.fields).toMatchObject({ grams: '22.31', materialName: 'PLA' });
     expect(draft.ux?.origin?.material).toBe('PLA');
+  });
+  it('venda direta sem extras ativos ignora campos antigos vazios e inválidos', () => {
+    const draft = newCalculationDraft(); draft.ux!.entry = 'manual'; draft.ux!.intent = 'sale';
+    draft.ux!.materialIncluded = false; draft.ux!.packagingDecision = 'exclude';
+    draft.fields.quantity = '1'; draft.fields.price = '19.90';
+    draft.fields.discount = ''; draft.fields.other = 'texto inválido'; draft.fields.shipping = '';
+    expect(saleExtraSelected(draft, 'discount')).toBe(false);
+    expect(expenseBreakdown(draft).other).toBe('0.00');
+    expect(guidedIssues(draft)).toEqual([]);
+    const output = calculateExperience(draft);
+    if (output.kind !== 'sale') throw new Error('Venda direta deveria ser calculável.');
+    expect(output.data.result).toMatchObject({ sellerDiscount: '0.00', sellerShipping: '0.00', otherOperatingCosts: '0.00' });
+    expect(output.data.result.status).toBe('complete');
+  });
+  it('despesas ativadas exigem valor e apontam campos editáveis', () => {
+    const draft = newCalculationDraft(); draft.ux!.entry = 'manual'; draft.ux!.intent = 'sale';
+    draft.ux!.materialIncluded = false; draft.fields.quantity = '1'; draft.fields.price = '19.90';
+    draft.fields.discount = ''; draft.fields.other = ''; draft.fields.shipping = '';
+    draft.ux!.discountIncluded = true; draft.ux!.otherCostsIncluded = true; draft.ux!.directShippingIncluded = true;
+    expect(guidedIssues(draft).map(item => item.field)).toEqual(['discount', 'other', 'shipping']);
+    const markup = renderToStaticMarkup(<FormContext value={{ draft, setField: () => {} }}>
+      <ExperienceContext value={{ draft, update: () => {} }}><SaleStep tables={[]} onSaveShop={() => {}} /></ExperienceContext>
+    </FormContext>);
+    for (const field of ['discount', 'other', 'shipping']) expect(markup).toContain('name="' + field + '"');
+    expect(() => calculateExperience(draft)).toThrow();
+  });
+  it('rascunhos antigos sem novos indicadores mantêm despesas previamente registradas', () => {
+    const draft = newCalculationDraft(); draft.ux!.entry = 'manual'; draft.ux!.intent = 'sale';
+    draft.ux!.materialIncluded = false; draft.ux!.packagingDecision = 'exclude';
+    draft.fields.quantity = '1'; draft.fields.price = '19.90';
+    delete draft.ux!.discountIncluded; delete draft.ux!.otherCostsIncluded; delete draft.ux!.directShippingIncluded;
+    draft.fields.discount = '1.50'; draft.fields.other = '2.00'; draft.fields.shipping = '3.00';
+    expect(saleExtraSelected(draft, 'discount')).toBe(true);
+    const output = calculateExperience(draft);
+    if (output.kind !== 'sale') throw new Error('Falha no rascunho histórico.');
+    expect(output.data.result).toMatchObject({ sellerDiscount: '1.50', sellerShipping: '3.00', otherOperatingCosts: '2.00' });
   });
   it('venda direta não solicita dados da Shopee quando há custo conscientemente excluído', () => {
     const draft = newCalculationDraft(); draft.ux!.entry = 'manual'; draft.ux!.intent = 'sale';

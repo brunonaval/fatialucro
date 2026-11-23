@@ -45,8 +45,18 @@ function integer(value: string, name: string): number {
   if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value))) throw new Error(`${name}: informe um inteiro.`);
   return Number(value);
 }
+/**
+ * Disabled sale expenses do not require values. Old drafts without these switches
+ * retain values already supplied; old API callers without UX are unaffected.
+ */
+export function saleExtraSelected(draft: CalculatorDraft, kind: 'discount' | 'other' | 'shipping'): boolean {
+  if (!draft.ux) return true;
+  const selected = kind === 'discount' ? draft.ux.discountIncluded : kind === 'other' ? draft.ux.otherCostsIncluded : draft.ux.directShippingIncluded;
+  return selected ?? text(draft, kind === 'discount' ? 'discount' : kind === 'other' ? 'other' : 'shipping').trim() !== '';
+}
 export function expenseBreakdown(draft: CalculatorDraft) {
-  return { other: parseBrazilianMoney(text(draft, 'other')), advertising: draft.fields.advertisingEnabled === true ? parseBrazilianMoney(text(draft, 'advertising')) : '0.00' };
+  return { other: saleExtraSelected(draft, 'other') ? parseBrazilianMoney(text(draft, 'other')) : '0.00',
+    advertising: draft.fields.advertisingEnabled === true ? parseBrazilianMoney(text(draft, 'advertising')) : '0.00' };
 }
 export function buildManufacturing(draft: CalculatorDraft): ManufacturingInput {
   const t = (name: string) => text(draft, name);
@@ -127,7 +137,7 @@ export function buildScenario(draft: CalculatorDraft, tables: readonly ShopeeTab
   const input: SaleInput = {
     date: t('date'), purpose: 'simulation', unitPrice: m('price'), quantity: integer(t('quantity'), 'Quantidade vendida'),
     manufacturing: buildManufacturing(draft),
-    ...packagingInput(draft), sellerDiscount: m('discount'), sellerShipping: t('marketplace') === 'shopee' && draft.ux?.shipping === 'no' ? '0.00' : m('shipping'),
+    ...packagingInput(draft), sellerDiscount: saleExtraSelected(draft, 'discount') ? m('discount') : '0.00', sellerShipping: t('marketplace') === 'shopee' ? (draft.ux?.shipping === 'no' ? '0.00' : m('shipping')) : (saleExtraSelected(draft, 'shipping') ? m('shipping') : '0.00'),
     otherOperatingCosts: new D(expenseBreakdown(draft).other).plus(expenseBreakdown(draft).advertising).toFixed(2),
     selections: t('marketplace') === 'shopee' ? shopeeSelections(context) : {}, facts: t('marketplace') === 'shopee' ? shopeeFacts(context) : {},
     acceptedAssumptions: Object.fromEntries((['validity', 'rounding', 'precedence'] as const).map(kind => [kind, yes(`accept${kind[0]!.toUpperCase()}${kind.slice(1)}`) && (!draft.ux?.assumptionReview || (draft.ux.assumptionReview.date === t('date') && draft.ux.assumptionReview.tableId === selectTable(t('date'), tables)?.table.id && draft.ux.assumptionReview.accepted.includes(kind)))])),

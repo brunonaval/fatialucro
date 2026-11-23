@@ -110,14 +110,16 @@ export function App() {
   }
   function fixIssue(issue: GuidedIssue) {
     focusTarget.current = 'field:' + issue.field;
-    if (issue.stage === ux.stage) {
+    if (issue.stage === ux.stage || ux.mode === 'advanced') {
       const input = [...document.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[name]')].find(node => node.getAttribute('name') === issue.field);
       if (input) {
         for (let ancestor = input.parentElement; ancestor; ancestor = ancestor.parentElement)
           if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
         input.focus(); input.scrollIntoView({ block: 'center' }); focusTarget.current = null;
+        return;
       }
-    } else setStage(issue.stage);
+    }
+    setStage(issue.stage);
   }
   function repo() { if (!repository.current) throw new Error('Armazenamento local indisponível. Nada foi salvo.'); return repository.current; }
   async function refresh() { setEntries(await repo().list(true)); }

@@ -1,6 +1,6 @@
 import { D } from '../engine/decimal';
 import type { CalculatorDraft } from '../app/model';
-import { text } from '../app/model';
+import { saleExtraSelected, text } from '../app/model';
 import { normalizeNumeric, numericIssue } from './format';
 import type { FieldKind } from './format';
 
@@ -89,10 +89,11 @@ export function guidedIssues(draft: CalculatorDraft): GuidedIssue[] {
     if (calculation === 'direct' || calculation === 'compare') check('price', text(draft, 'price'), 'sale', 'Preço de venda', 'money', true);
     if (calculation === 'profit') check('targetProfit', text(draft, 'targetProfit'), 'sale', 'Lucro desejado', 'money');
     if (calculation === 'margin') check('targetMargin', text(draft, 'targetMargin'), 'sale', 'Margem desejada', 'ratio');
-    for (const [field, label] of [['discount', 'Desconto do vendedor'], ['other', 'Outras despesas']] as const)
-      check(field, text(draft, field), 'sale', label, 'money');
+    if (saleExtraSelected(draft, 'discount')) check('discount', text(draft, 'discount'), 'sale', 'Desconto do vendedor', 'money');
+    if (saleExtraSelected(draft, 'other')) check('other', text(draft, 'other'), 'sale', 'Outras despesas', 'money');
     if (draft.fields.advertisingEnabled === true) check('advertising', text(draft, 'advertising'), 'sale', 'Publicidade', 'money');
-    if (text(draft, 'marketplace') === 'direct' || ux.shipping === 'yes')
+    if ((text(draft, 'marketplace') === 'direct' && saleExtraSelected(draft, 'shipping')) ||
+      (text(draft, 'marketplace') === 'shopee' && ux.shipping === 'yes'))
       check('shipping', text(draft, 'shipping'), 'sale', 'Frete líquido', 'money');
   }
   return issues;
