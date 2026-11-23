@@ -63,7 +63,7 @@ describe('Auditoria UX — navegação correta e erros indicados no campo', () =
       focus = vi.fn();
       scrollIntoView = vi.fn();
       label: FakeNode | null = null;
-      matches(_selector: string) { return true; }
+      matches() { return true; }
       closest(selector: string) { return selector === 'label' ? this.label : null; }
       getAttribute(name: string) { return this.attrs.get(name) ?? null; }
       setAttribute(name: string, value: string) { this.attrs.set(name, value); }
