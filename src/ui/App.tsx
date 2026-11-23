@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { newCalculationDraft, exampleDraft, withExperience, applyProfile, calculationSignature } from '../app/experience';
 import { text, validateDraft } from '../app/model';
@@ -31,6 +31,7 @@ import { savedLabels } from './ProfileSelect';
 import { FinancialSummary } from './FinancialSummary';
 import { StoreSettings } from './StoreSettings';
 import { UpdatePanel } from './UpdatePanel';
+import { focusCorrectionTarget, focusPageStart } from './navigation';
 import { CalculationNavigation, StageActions } from './CalculationNavigation';
 import { applyFinalPrice, beginSale, changeScenarioDate } from '../app/ux-v3';
 import { guidedIssues } from './guided-validation';
@@ -44,6 +45,7 @@ export function App() {
   const [startGoal, setStartGoal] = useState<'profit' | 'cost' | 'sale'>('profit');
   const [page, setPage] = useState<Page>('calculate'); const [ready, setReady] = useState(false); const [entries, setEntries] = useState<SavedEntry[]>([]);
   const [theme, setTheme] = useState<Theme>('system'); const [notice, setNotice] = useState(''); const [busy, setBusy] = useState(false);
+  const [validationRequested, setValidationRequested] = useState(false);
   const [recovery, setRecovery] = useState<CalculatorDraft | null>(null); const [draftStatus, setDraftStatus] = useState(''); const [editing, setEditing] = useState<EditingContext>({}); const [savedKey, setSavedKey] = useState('');
   const [workshop, setWorkshop] = useState<WorkshopProgress | null>(null); const [showWorkshop, setShowWorkshop] = useState(false); const [profileDelete, setProfileDelete] = useState<SavedEntry | null>(null);
   const [catalog, setCatalog] = useState<ValidatedPackage>({ manifest: bundledManifest, tables: bundledTables, package: bundledPackage });
@@ -81,22 +83,16 @@ export function App() {
     void initialize(); return () => { active = false; repository.current = null; void repo.close().catch(() => {}); };
   }, []);
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
+  // Main navigation starts at the top. Only explicit correction links jump to a field.
+  useLayoutEffect(() => { focusPageStart(); }, [page]);
   useEffect(() => {
-    const id = focusTarget.current ?? (page === 'calculate' && ux.entry !== 'none' ? `${ux.stage}-step` : 'workspace-content'); focusTarget.current = null;
-    if (id.startsWith('field:')) {
-      const field = id.slice(6);
-      const input = [...document.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('[name]')].find(node => node.getAttribute('name') === field);
-      if (input) {
-        for (let ancestor = input.parentElement; ancestor; ancestor = ancestor.parentElement)
-          if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
-        input.focus({ preventScroll: false }); input.scrollIntoView({ block: 'center' }); return;
-      }
-    }
-    const node = document.getElementById(id); if (node) {
-      for (let ancestor = node.parentElement; ancestor; ancestor = ancestor.parentElement)
-        if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
-      node.setAttribute('tabindex', '-1'); node.focus({ preventScroll: false }); node.scrollIntoView({ block: 'center' });
-    }
+    const target = focusTarget.current;
+    if (!target) return;
+    focusTarget.current = null;
+    const frame = requestAnimationFrame(() => {
+      if (!focusCorrectionTarget(target)) focusCorrectionTarget(ux.stage + '-step');
+    });
+    return () => cancelAnimationFrame(frame);
   }, [page, ux.stage, ux.entry]);
   useEffect(() => {
     if (!ready || !repository.current || ux.entry === 'none' || example) return;
@@ -106,8 +102,21 @@ export function App() {
   }, [draft, ready, ux.entry, example]);
 
   function update(next: CalculatorDraft) { setDraft(withExperience(next)); }
-  function setField(name: string, value: string | boolean) { if (current.fields[name] !== value) update(name === 'date' ? changeScenarioDate(current, String(value)) : { ...current, fields: { ...current.fields, [name]: value } }); }
-  function setStage(stage: typeof ux.stage) { update({ ...current, ux: { ...ux, stage } }); }
+  function setField(name: string, value: string | boolean) {
+    document.querySelectorAll('[data-correction-target="true"]').forEach(node => node.removeAttribute('data-correction-target'));
+    if (current.fields[name] !== value) update(name === 'date' ? changeScenarioDate(current, String(value)) : { ...current, fields: { ...current.fields, [name]: value } });
+  }
+  function navigatePage(next: Page) {
+    focusTarget.current = null;
+    if (page === next) focusPageStart();
+    else setPage(next);
+  }
+  function setStage(stage: typeof ux.stage) {
+    if (stage === 'result' && issues.length > 0) setValidationRequested(true);
+    focusTarget.current = stage + '-step';
+    if (stage === ux.stage) { focusCorrectionTarget(focusTarget.current); focusTarget.current = null; }
+    else update({ ...current, ux: { ...ux, stage } });
+  }
   function startWithGoal(next: CalculatorDraft) {
     const selected = withExperience(next);
     update({ ...selected, fields: { ...selected.fields, calculation: startGoal === 'profit' ? 'profit' : 'direct',
@@ -115,17 +124,13 @@ export function App() {
       ux: { ...selected.ux, intent: startGoal === 'cost' ? 'cost' : 'sale', stage: 'print' } });
   }
   function fixIssue(issue: GuidedIssue) {
-    focusTarget.current = 'field:' + issue.field;
+    setValidationRequested(true);
+    const target = 'field:' + issue.field;
     if (issue.stage === ux.stage || ux.mode === 'advanced') {
-      const input = [...document.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('[name]')].find(node => node.getAttribute('name') === issue.field);
-      if (input) {
-        for (let ancestor = input.parentElement; ancestor; ancestor = ancestor.parentElement)
-          if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
-        input.focus(); input.scrollIntoView({ block: 'center' }); focusTarget.current = null;
-        return;
-      }
+      if (focusCorrectionTarget(target)) { focusTarget.current = null; return; }
     }
-    setStage(issue.stage);
+    focusTarget.current = target;
+    update({ ...current, ux: { ...ux, stage: issue.stage } });
   }
   function repo() { if (!repository.current) throw new Error('Armazenamento local indisponível. Nada foi salvo.'); return repository.current; }
   async function refresh() { setEntries(await repo().list(true)); }
@@ -140,9 +145,9 @@ export function App() {
   }
   async function startNew() {
     if (!await preserveDraft()) return; setStartGoal('profit');
-    const fresh = workshopDefaults(newCalculationDraft(), realEntries); update({ ...fresh, ux: { ...withExperience(fresh).ux, mode: ux.mode } }); setEditing({}); setSavedKey(''); setPage('calculate'); setNotice('');
+    const fresh = workshopDefaults(newCalculationDraft(), realEntries); update({ ...fresh, ux: { ...withExperience(fresh).ux, mode: ux.mode } }); setEditing({}); setSavedKey(''); setValidationRequested(false); navigatePage('calculate'); setNotice('');
   }
-  async function exploreExample() { if (!await preserveDraft()) return; update(exampleDraft()); setEditing({}); setSavedKey(''); setPage('calculate'); setNotice('Exemplo fictício isolado. Nenhum custo da sua oficina foi substituído.'); }
+  async function exploreExample() { if (!await preserveDraft()) return; update(exampleDraft()); setEditing({}); setSavedKey(''); setValidationRequested(false); navigatePage('calculate'); setNotice('Exemplo fictício isolado. Nenhum custo da sua oficina foi substituído.'); }
   function useProfile(entry: SavedEntry, stage?: typeof ux.stage) {
     if (!['printer', 'filament', 'production', 'marketplace'].includes(entry.kind)) return;
     try {
@@ -155,7 +160,7 @@ export function App() {
     const loaded = withExperience(structuredClone(entry.draft)); update({ ...loaded, fields: { ...loaded.fields, productName: duplicate ? `${entry.name} — cópia` : entry.name }, ux: { ...loaded.ux, stage: entry.kind === 'product' ? 'print' : loaded.ux.intent === 'sale' ? 'sale' : 'costs' } });
     const productId = entry.kind === 'product' ? entry.id : entry.productId;
     setEditing(duplicate ? {} : { ...(productId ? { productId } : {}), ...(entry.kind === 'product' ? {} : { parentId: entry.id }) });
-    setSavedKey(''); setPage('calculate'); setNotice(`${duplicate ? 'Cópia independente em edição.' : 'Editando uma nova revisão.'} O registro salvo continua intacto; o recálculo usa as tarifas atualmente selecionadas. ${!entry.draft.ux ? 'Confira a origem e os custos deste registro anterior.' : ''}`);
+    setSavedKey(''); setValidationRequested(false); navigatePage('calculate'); setNotice(`${duplicate ? 'Cópia independente em edição.' : 'Editando uma nova revisão.'} O registro salvo continua intacto; o recálculo usa as tarifas atualmente selecionadas. ${!entry.draft.ux ? 'Confira a origem e os custos deste registro anterior.' : ''}`);
   }
   async function saveProduct() {
     if (example) { setNotice('Demonstração fictícia: comece seu próprio cálculo para salvar.'); return; }
@@ -196,28 +201,23 @@ export function App() {
     await mutate(async () => { const data = await repo().export(); const url = URL.createObjectURL(new Blob([data], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = `fatialucro-backup-${new Date().toISOString().slice(0, 10)}.json`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }, 'Backup local preparado. Guarde-o em um lugar privado.');
   }
   function resolvePending(target: string) {
+    setValidationRequested(true);
     focusTarget.current = target;
     if (ux.stage === 'sale') {
-      const node = document.getElementById(target);
-      if (node) {
-        for (let ancestor = node.parentElement; ancestor; ancestor = ancestor.parentElement)
-          if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
-        node.focus(); node.scrollIntoView({ block: 'center' });
-      }
-      focusTarget.current = null;
+      if (focusCorrectionTarget(target)) { focusTarget.current = null; return; }
     }
-    else update({ ...current, ux: { ...ux, intent: 'sale', stage: 'sale' } });
+    update({ ...current, ux: { ...ux, intent: 'sale', stage: 'sale' } });
   }
   async function saveStoreDraft(value: CalculatorDraft) {
     if (!['CPF', 'CNPJ'].includes(text(value, 'seller'))) throw new Error('Informe CPF ou CNPJ antes de salvar a loja.');
     if (!await mutate(() => repo().save({ id: 'store-shopee', kind: 'marketplace', name: 'Minha loja Shopee', updatedAt: new Date().toISOString(), draft: structuredClone(value) }), 'Minha loja Shopee salva. Frete, volume e condições temporárias continuam próprios do cenário.')) throw new Error('Não foi possível salvar a loja.');
   }
-  function submit(event: FormEvent) { event.preventDefault(); automatic.runNow(); setStage('result'); }
+  function submit(event: FormEvent) { event.preventDefault(); automatic.runNow(); setValidationRequested(true); setStage('result'); }
   const show = (stage: typeof ux.stage) => ux.mode === 'advanced' || ux.stage === stage;
-  return <FormContext value={{ draft: current, setField }}><ExperienceContext value={{ draft: current, update, financial: automatic.state }}><main className="experience-app" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); setNotice("Solte o arquivo na área de importação ou use Selecionar arquivo."); }}>
+  return <FormContext value={{ draft: current, setField, issues, showErrors: validationRequested }}><ExperienceContext value={{ draft: current, update, financial: automatic.state }}><main className="experience-app" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); setNotice("Solte o arquivo na área de importação ou use Selecionar arquivo."); }}>
     <a className="skip-link" href="#workspace-content">Pular para o conteúdo</a>
     <header className="app-header"><div><h1>Fatia<span>Lucro</span></h1><p>Saiba quanto custa imprimir e quanto sobra na venda</p></div><button type="button" className="text-button" onClick={() => { void startNew(); }} disabled={!ready}>Nova impressão</button></header>
-    <nav aria-label="Navegação principal">{([['calculate', 'Calcular'], ['products', 'Meus produtos'], ['settings', 'Configurações']] as const).map(([value, label]) => <button type="button" key={value} aria-current={page === value ? 'page' : undefined} className={page === value ? 'active' : 'secondary'} onClick={() => setPage(value)}>{label}</button>)}</nav>
+    <nav aria-label="Navegação principal">{([['calculate', 'Calcular'], ['products', 'Meus produtos'], ['settings', 'Configurações']] as const).map(([value, label]) => <button type="button" key={value} aria-current={page === value ? 'page' : undefined} className={page === value ? 'active' : 'secondary'} onClick={() => navigatePage(value)}>{label}</button>)}</nav>
     <div id="workspace-content" tabIndex={-1}>
       {notice && <p className="message" role="status">{notice}</p>}{!ready && <p className="empty-state" role="status">Carregando seus dados locais…</p>}
       {page === 'calculate' ? <>
@@ -230,12 +230,16 @@ export function App() {
           <PrintImport primary disabled={!ready} filaments={realEntries} draft={current} onApply={startWithGoal} />
           <div className="start-alternatives"><button type="button" className="secondary" disabled={!ready} onClick={() => startWithGoal({ ...current, ux: { ...ux, entry: 'manual', stage: 'print' } })}>Preencher manualmente — peso e tempo</button><button type="button" className="text-button" disabled={!ready} onClick={() => { void exploreExample(); }}>Experimentar com um exemplo fictício</button></div>
           {recovery && <div className="recovery-card"><h3>Há um rascunho neste dispositivo</h3><p>{text(recovery, 'productName') || 'Impressão sem nome'} · a data e as entradas serão preservadas.</p><button type="button" className="secondary" onClick={() => { update(withExperience(recovery)); setRecovery(null); setEditing({}); setSavedKey(''); }}>Continuar de onde parei</button></div>}
-          <button type="button" className="text-button" onClick={() => { setPage('settings'); setShowWorkshop(true); }}>Configurar minha oficina (opcional)</button>
+          <button type="button" className="text-button" onClick={() => { setShowWorkshop(true); navigatePage('settings'); }}>Configurar minha oficina (opcional)</button>
         </section> : <>
           {example && <div className="example-banner"><strong>Exemplo fictício</strong><span>Não são os custos da sua oficina. Não será salvo como dado real.</span><button type="button" className="secondary" onClick={() => { void startNew(); }}>Começar com meus dados</button></div>}
           <div className="workspace-toolbar"><span className="draft-status" role="status">{example ? 'Demonstração isolada' : draftStatus || 'Seus dados ficam neste dispositivo'}</span><details className="workspace-options"><summary>Opções do cálculo</summary><button type="button" className="text-button" aria-pressed={ux.mode === 'advanced'} onClick={chooseMode}>{ux.mode === 'simple' ? 'Abrir modo avançado' : 'Voltar ao modo simples'}</button>{!example && <button type="button" className="text-button" disabled={busy} onClick={() => { void saveProduct(); }}>Guardar produto sem esperar o cálculo</button>}</details></div>
           <div className="calculation-layout"><div className="calculation-content">
           <CalculationNavigation ux={ux} onStage={setStage} />
+          {validationRequested && ux.stage !== 'result' && issues.some(issue => issue.stage === ux.stage) && <div className="current-step-issues" role="status">
+            <strong>{issues.filter(issue => issue.stage === ux.stage).length} {issues.filter(issue => issue.stage === ux.stage).length === 1 ? 'campo precisa' : 'campos precisam'} de correção nesta etapa.</strong>
+            <button type="button" className="secondary" onClick={() => { const first = issues.find(issue => issue.stage === ux.stage); if (first) fixIssue(first); }}>Corrigir: {issues.find(issue => issue.stage === ux.stage)?.label}</button>
+          </div>}
           <form onSubmit={submit} noValidate>
             {show('print') && <PrintStep filaments={realEntries} />}
             {show('costs') && <section id="costs-step"><div className="section-heading"><span className="step-label">Custos</span><h2>Quanto custa fabricar esta peça?</h2><p>Para começar, informe somente o preço do filamento. Energia, máquina e trabalho são opcionais.</p></div><FilamentFields entries={realEntries} onProfile={useProfile} onSave={value => saveProfile(value, 'filament')} />{ux.mode === 'advanced' ? <PrinterFields entries={realEntries} onProfile={useProfile} /> : <details className="optional-costs"><summary>{ux.machineIncluded ? 'Energia e impressora incluídas — editar (opcional)' : 'Incluir energia e impressora (opcional)'}</summary><PrinterFields entries={realEntries} onProfile={useProfile} /></details>}{ux.intent === 'cost' && <details><summary>Incluir embalagem (opcional)</summary><PackagingFields /></details>}{ux.mode === 'advanced' ? <OptionalCosts /> : <details className="optional-costs"><summary>Mão de obra e outros custos (opcional)</summary><OptionalCosts /></details>}</section>}
@@ -246,14 +250,13 @@ export function App() {
           <p className="automatic-note">Atualizamos os cálculos automaticamente. Custos opcionais ficam recolhidos; caso falte algo, use Corrigir no resumo.</p>
         </>}
       </> : page === 'products' ? <ProductLibrary entries={entries} busy={busy} onNew={() => { void startNew(); }} onEdit={(entry, duplicate) => { void editRecord(entry, duplicate); }} onTrash={entry => mutate(() => repo().trash(entry.id), 'Registro movido para a lixeira. Você pode restaurá-lo em Meus produtos.')} onRestore={entry => mutate(() => repo().restore(entry.id), 'Registro restaurado com seus dados e regras originais.')} /> : <div className="settings-area">
-        <section><h2>Aparência e modo de uso</h2><label>Aparência<select value={theme} onChange={event => chooseTheme(event.target.value)}><option value="system">Sistema</option><option value="light">Claro</option><option value="dark">Escuro</option></select></label><button type="button" className="secondary" aria-pressed={ux.mode === 'advanced'} onClick={chooseMode}>{ux.mode === 'simple' ? 'Abrir modo avançado' : 'Voltar ao modo simples'}</button><p>Os dois modos usam os mesmos dados e cálculos. O simples mostra uma decisão por vez.</p></section>
+        <section><h2>Aparência</h2><label>Usar tema<select value={theme} onChange={event => chooseTheme(event.target.value)}><option value="system">Automático (Windows)</option><option value="light">Claro</option><option value="dark">Escuro</option></select></label><details className="settings-inline"><summary>Modo avançado (opcional)</summary><button type="button" className="secondary" aria-pressed={ux.mode === 'advanced'} onClick={chooseMode}>{ux.mode === 'simple' ? 'Mostrar configurações avançadas no cálculo' : 'Voltar ao modo simples'}</button></details></section>
         <UpdatePanel />
-        <StoreSettings saved={realEntries.find(entry => entry.id === 'store-shopee')} tables={catalog.tables} onSave={saveStoreDraft} />
-        <section><span className="step-label">Configurações</span><h2>Organize sua oficina no seu ritmo</h2><p>Esses cadastros são reutilizáveis. Nenhuma etapa é obrigatória para começar um cálculo.</p><button type="button" onClick={() => setShowWorkshop(!showWorkshop)}>{showWorkshop ? 'Recolher assistente' : workshop ? 'Retomar configuração da oficina' : 'Configurar minha oficina'}</button></section>
+        <details className="settings-group"><summary>Minha loja Shopee — editar cadastro (opcional)</summary><StoreSettings saved={realEntries.find(entry => entry.id === 'store-shopee')} tables={catalog.tables} onSave={saveStoreDraft} /></details>
+        <details className="settings-group" defaultOpen={showWorkshop}><summary>Configurar impressoras e custos da oficina (opcional)</summary><section><h2>Minha oficina</h2><p>Você pode calcular sem preencher esta configuração.</p><button type="button" onClick={() => setShowWorkshop(!showWorkshop)}>{showWorkshop ? 'Recolher assistente' : workshop ? 'Retomar configuração da oficina' : 'Configurar minha oficina'}</button></section>
         {showWorkshop && <WorkshopWizard initial={workshop} tables={catalog.tables} onSave={saveWorkshop} onApply={applyWorkshop} onProfile={saveProfile} />}
-        <section><h2>Impressoras, filamentos e custos salvos</h2>{!realEntries.some(entry => ['printer', 'filament', 'production', 'marketplace'].includes(entry.kind)) && <div className="empty-state"><p>Ainda não há perfis. Você pode criá-los no assistente e continuar calculando sem terminar todas as etapas.</p></div>}{realEntries.filter(entry => ['printer', 'filament', 'production', 'marketplace'].includes(entry.kind)).map(entry => <article className="saved-row" key={entry.id}><div><strong>{entry.name}</strong><p>{savedLabels[entry.kind]}</p></div><div><button type="button" className="secondary" onClick={() => { useProfile(entry, ux.entry === 'none' ? undefined : entry.kind === 'marketplace' ? 'sale' : 'costs'); setPage('calculate'); }}>Usar no cálculo</button><button type="button" className="text-button" onClick={() => setProfileDelete(entry)}>Mover para lixeira…</button></div></article>)}{profileDelete && <div className="confirm-inline" role="alert"><p>Mover “{profileDelete.name}” para a lixeira? As simulações salvas conservam seus próprios custos.</p><button type="button" disabled={busy} onClick={async () => { if (await mutate(() => repo().trash(profileDelete.id), 'Perfil movido para a lixeira; pode ser restaurado em Meus produtos.')) setProfileDelete(null); }}>Confirmar</button><button type="button" className="secondary" onClick={() => setProfileDelete(null)}>Cancelar</button></div>}</section>
-        <section><h2>Ajuda rápida</h2><p>Importe uma placa fatiada ou preencha peso e tempo, informe o filamento e escolha os custos. Venda é opcional. Dados e arquivos permanecem locais; a consulta de tarifas só ocorre quando você solicita.</p><p>Exporte um backup antes de trocar instalação ou limpar dados. O backup inclui produtos, perfis e cálculos salvos, mas não o rascunho e as preferências.</p></section>
-        <CatalogManager active={catalog} onApply={applyCatalog} /><BackupPanel busy={busy} onExport={() => { void exportBackup(); }} onImport={data => mutate(() => repo().import(data), 'Backup restaurado. Conflitos foram preservados como cópias, sem sobrescrever históricos.')} />
+        <section><h2>Cadastros e custos salvos</h2>{!realEntries.some(entry => ['printer', 'filament', 'production', 'marketplace'].includes(entry.kind)) && <div className="empty-state"><p>Ainda não há perfis. Você pode criá-los no assistente e continuar calculando sem terminar todas as etapas.</p></div>}{realEntries.filter(entry => ['printer', 'filament', 'production', 'marketplace'].includes(entry.kind)).map(entry => <article className="saved-row" key={entry.id}><div><strong>{entry.name}</strong><p>{savedLabels[entry.kind]}</p></div><div><button type="button" className="secondary" onClick={() => { useProfile(entry, ux.entry === 'none' ? undefined : entry.kind === 'marketplace' ? 'sale' : 'costs'); navigatePage('calculate'); }}>Usar no cálculo</button><button type="button" className="text-button" onClick={() => setProfileDelete(entry)}>Mover para lixeira…</button></div></article>)}{profileDelete && <div className="confirm-inline" role="alert"><p>Mover “{profileDelete.name}” para a lixeira? As simulações salvas conservam seus próprios custos.</p><button type="button" disabled={busy} onClick={async () => { if (await mutate(() => repo().trash(profileDelete.id), 'Perfil movido para a lixeira; pode ser restaurado em Meus produtos.')) setProfileDelete(null); }}>Confirmar</button><button type="button" className="secondary" onClick={() => setProfileDelete(null)}>Cancelar</button></div>}</section></details>
+        <details className="settings-group"><summary>Ajuda e catálogo de tarifas (avançado)</summary><section><h2>Como começar</h2><p>Importe um arquivo fatiado ou informe o peso e o preço do filamento. Para vender, escolha o canal e sua meta.</p><p>Antes de trocar a instalação, exporte um backup. O backup não inclui o rascunho em edição.</p></section><CatalogManager active={catalog} onApply={applyCatalog} /></details><BackupPanel busy={busy} onExport={() => { void exportBackup(); }} onImport={data => mutate(() => repo().import(data), 'Backup restaurado. Conflitos foram preservados como cópias, sem sobrescrever históricos.')} />
       </div>}
     </div><footer>FatiaLucro · gratuito e local. Estimativas baseadas nos custos e nas condições informadas. Sem conta ou telemetria obrigatória. Consulta de tarifas somente quando você solicitar.</footer>
   </main></ExperienceContext></FormContext>;

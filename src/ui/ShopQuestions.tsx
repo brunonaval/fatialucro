@@ -9,6 +9,7 @@ import { SimulationReview } from './SimulationReview';
 import { shopeeCheckpoints } from '../app/shopee-checkpoints';
 import type { ShopeeCheckpointId } from '../app/shopee-checkpoints';
 import { ShopSetupGuide } from './ShopSetupGuide';
+import { focusCorrectionTarget } from './navigation';
 
 export function ShopQuestions({ tables, permanentOnly = false }: { tables: readonly ShopeeTable[]; permanentOnly?: boolean }) {
   const { draft, ux, update } = useExperience(); const prefix = useId(); const sectionId = (id: string) => permanentOnly ? `${prefix}-${id}` : id; const [showPrograms, setShowPrograms] = useState(false); const [editSeller, setEditSeller] = useState(false);
@@ -28,10 +29,7 @@ export function ShopQuestions({ tables, permanentOnly = false }: { tables: reado
     if (wrapper instanceof HTMLDetailsElement) wrapper.open = true;
     if (target === 'shop-programs') setShowPrograms(true);
     if (target === 'shop-seller') setEditSeller(true);
-    window.requestAnimationFrame(() => {
-      const section = document.getElementById(sectionId(target));
-      if (section) { section.focus(); section.scrollIntoView({ block: 'center' }); }
-    });
+    window.requestAnimationFrame(() => { focusCorrectionTarget(sectionId(target)); });
   }
   const checks = permanentOnly ? [] : shopeeCheckpoints(draft, tables);
   const exactOrders = text(draft, 'orders');
