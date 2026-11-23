@@ -61,7 +61,7 @@ export function parseGcode(text: string, fileName = 'impressao.gcode'): PrintImp
   }
   const configuredMaterial = unique(['filament_type', 'material']) ?? null;
   const names = configuredMaterial?.split(';').map(name => name.trim().slice(0, 300)).filter(Boolean) ?? [];
-  const material = [...new Set(names)].join('; ') || null;
+  const material = [...new Set(names)].join(';') || null;
   const printer = unique(['printer_model', 'printer model', 'printer_settings_id', 'machine_model']) ?? null;
   const count = numeric(unique(['total object count', 'object_count', 'number of objects']) ?? undefined);
   const pieces = count !== null && new D(count).isInteger() && new D(count).gte(1) && new D(count).lte(10_000) ? new D(count).toNumber() : null;
