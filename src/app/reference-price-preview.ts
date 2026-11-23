@@ -10,6 +10,7 @@ export interface ReferencePricePreview {
   upper: string;
   returnsUnconfirmed: boolean;
   searchStart: string;
+  hypotheticalConditions: string[];
 }
 
 /**
@@ -25,22 +26,39 @@ export function referencePricePreview(draft: CalculatorDraft, tables: readonly S
   if (text(draft, 'marketplace') !== 'shopee' ||
       !['profit', 'margin', 'equilibrium'].includes(text(draft, 'calculation')) ||
       !['CPF', 'CNPJ'].includes(text(draft, 'seller')) ||
-      !draft.ux || draft.ux.shipping === 'unknown' ||
-      draft.ux.packagingDecision === 'unknown') return null;
+      !draft.ux || draft.ux.packagingDecision === 'unknown') return null;
 
   const fields = scenarioPrograms(draft);
-  if (['highlight', 'ads', 'affiliates', 'advance'].some(key => fields[key] === 'unknown')) return null;
-  if (text(draft, 'seller') === 'CPF') {
-    const count = text(draft, 'orders');
-    const exactCount = /^\d+$/.test(count) && Number.isSafeInteger(Number(count));
-    const volume = draft.ux.volume;
-    if (!exactCount && (volume.answer === 'unknown' || volume.date !== text(draft, 'date'))) return null;
-  }
-
   let table: ShopeeTable | undefined;
   try { table = selectTable(text(draft, 'date'), tables)?.table; } catch { return null; }
   if (!table) return null;
   const review = ['validity', 'rounding', ...(text(draft, 'seller') === 'CPF' && table.cpf.fixedConflict ? ['precedence'] : [])] as ('validity' | 'rounding' | 'precedence')[];
+  const hypotheticalConditions: string[] = [];
+  const baseline = structuredClone(draft);
+  // These changes exist in a transient illustrative copy only. They are not
+  // confirmations of the user's answers and cannot determine real net profit.
+  for (const field of ['highlight', 'ads', 'affiliates', 'advance'] as const) {
+    if (fields[field] === 'unknown') {
+      baseline.fields[field] = 'inactive';
+      hypotheticalConditions.push(`${field}: sem cobrança adicional no cenário de referência`);
+    }
+  }
+  if (draft.ux.shipping === 'unknown') {
+    baseline.ux!.shipping = 'no';
+    baseline.fields.shippingConfirmed = true;
+    baseline.fields.shipping = '0';
+    hypotheticalConditions.push('Frete desconhecido: cenário ilustrativo sem débito líquido de frete');
+  }
+  if (text(draft, 'seller') === 'CPF') {
+    const count = text(draft, 'orders');
+    const exactCount = /^\\d+$/.test(count) && Number.isSafeInteger(Number(count));
+    const volume = draft.ux.volume;
+    if (!exactCount && (volume.answer === 'unknown' || volume.date !== text(draft, 'date'))) {
+      if (table.cpf.volumeThreshold === null) return null;
+      baseline.ux!.volume = { answer: 'below', threshold: table.cpf.volumeThreshold, date: text(draft, 'date') };
+      hypotheticalConditions.push('Volume de pedidos desconhecido: cenário ilustrativo abaixo do limite CPF');
+    }
+  }
   const declaredReturns = String(fields.returns ?? 'unknown');
   const unknownReturns = declaredReturns === 'unknown';
   if (!unknownReturns && !['inactive', 'trial', 'billable'].includes(declaredReturns)) return null;
@@ -51,7 +69,7 @@ export function referencePricePreview(draft: CalculatorDraft, tables: readonly S
   let minimumStart: string | null = null;
   try {
     for (const status of statuses) {
-      const illustration = structuredClone(draft);
+      const illustration = structuredClone(baseline);
       illustration.fields.returns = status;
       // Only this in-memory illustration uses the tariff hypotheses. The
       // original user draft, flags, acknowledgements and stored data stay intact.
@@ -65,7 +83,7 @@ export function referencePricePreview(draft: CalculatorDraft, tables: readonly S
     }
     const sorted = prices.sort((a, b) => Number(a) - Number(b));
     if (!sorted[0] || !sorted.at(-1) || !minimumStart) return null;
-    return { lower: sorted[0], upper: sorted.at(-1)!, returnsUnconfirmed: unknownReturns, searchStart: minimumStart };
+    return { lower: sorted[0], upper: sorted.at(-1)!, returnsUnconfirmed: unknownReturns, searchStart: minimumStart, hypotheticalConditions };
   } catch {
     return null; // An unresolved monetary input or rule never yields an invented price.
   }
