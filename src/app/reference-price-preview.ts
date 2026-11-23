@@ -51,7 +51,7 @@ export function referencePricePreview(draft: CalculatorDraft, tables: readonly S
   }
   if (text(draft, 'seller') === 'CPF') {
     const count = text(draft, 'orders');
-    const exactCount = /^\\d+$/.test(count) && Number.isSafeInteger(Number(count));
+    const exactCount = /^\d+$/.test(count) && Number.isSafeInteger(Number(count));
     const volume = draft.ux.volume;
     if (!exactCount && (volume.answer === 'unknown' || volume.date !== text(draft, 'date'))) {
       if (table.cpf.volumeThreshold === null) return null;
