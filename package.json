@@ -1,6 +1,6 @@
 {
   "name": "fatialucro",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "description": "Calculadora offline e auditável de precificação para impressão 3D",
   "license": "MIT",
