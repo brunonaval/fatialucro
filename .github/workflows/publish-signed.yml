@@ -63,8 +63,11 @@ jobs:
           if ($package.version -ne $tauri.version) { throw 'Tauri and npm versions do not match.' }
           if ($package.version -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') { throw 'A stable SemVer is required.' }
           $tag = 'v' + $package.version
-          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
-          if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists; increment the application version before publishing." }
+          # Listing releases avoids treating the expected 404 for a new version as a PowerShell failure.
+          $releaseJson = gh release list --repo $env:GITHUB_REPOSITORY --json tagName --limit 100
+          if ($LASTEXITCODE -ne 0) { throw 'Could not verify existing GitHub releases; publication cancelled.' }
+          $existingTags = @($releaseJson | ConvertFrom-Json | ForEach-Object { $_.tagName })
+          if ($existingTags -contains $tag) { throw "Release $tag already exists; increment the application version before publishing." }
           $config = @{
             bundle = @{ createUpdaterArtifacts = $true }
             plugins = @{ updater = @{
