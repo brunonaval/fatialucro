@@ -22,6 +22,6 @@ export function calculateWorkspace(draft: CalculatorDraft, tables: readonly Shop
   } else if (operation === 'compare') comparison = comparePrices(input, catalogAt, text(draft, 'comparison').split(';').map(value => parseBrazilianMoney(value.trim())));
   else if (operation !== 'direct') throw new Error('Operação inválida.');
   const production = calculateManufacturing({ ...input.manufacturing, ...(input.manufacturing.partsPerUnit === undefined ? {} : { partsPerUnit: 1 }) }, input.manufacturing.basis === 'batch' ? input.manufacturing.piecesPerBatch! : 1);
-  return { input, catalog, result, production, expenses: expenseBreakdown(draft), solution, comparison, searchRange };
+  return { input, catalog, result, production, expenses: expenseBreakdown(draft), solution, comparison, ...(searchRange ? { searchRange } : {}) };
 }
 export type CalculationOutput = ReturnType<typeof calculateWorkspace>;

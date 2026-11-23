@@ -55,8 +55,9 @@ describe('UX V4: desbloquear o preço sem exigir cadastros ocultos', () => {
     const result = calculateExperience(draft);
     expect(result.kind).toBe('blocked-search');
     if (result.kind === 'blocked-search') {
-      expect(result.data.solution?.status).toBe('partial');
-      expect(result.data.solution?.pending.some(x => x.id.includes('regressive'))).toBe(true);
+      const solution = result.data.solution;
+      expect(solution?.status).toBe('partial');
+      if (solution?.status === 'partial') expect(solution.pending.some(item => item.id.includes('regressive'))).toBe(true);
     }
   });
   it('não troca automaticamente a faixa do CNPJ nem da venda direta', () => {
