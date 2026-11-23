@@ -1,16 +1,19 @@
 :root {
   color-scheme: light;
-  --bg: #f4f6f8; --surface: #ffffff; --surface-soft: #f8fafb; --text: #1b2c39; --muted: #536578;
-  --border: #dce4eb; --input-border: #7c8c9b; --accent: #146c56; --accent-hover: #0d5342; --accent-soft: #e7f5ee; --on-accent: #ffffff;
-  --warning-bg: #fff4dd; --warning-text: #6f4810; --warning-border: #d8b16b; --error: #b42332; --error-bg: #fff0f1;
-  --success-bg: #e6f5ec; --success-text: #1b5e3a; --ring: #267e9a; --shadow: 0 4px 20px #1a354207;
-  --radius: 16px; --radius-small: 9px; --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-6: 24px; --space-8: 32px;
+  /* Bambu-inspired light palette: green signal, neutral panels, accessible CTA. */
+  --bg: #F5F8F6; --surface: #FFFFFF; --surface-soft: #F0F5F2; --text: #1D2B24; --muted: #51665A;
+  --border: #D8E5DD; --input-border: #778C80; --accent: #087A3D; --accent-hover: #066635; --accent-soft: #E7F6EB; --on-accent: #FFFFFF;
+  --brand-signal: #00AE42;
+  --warning-bg: #FFF5E3; --warning-text: #694508; --warning-border: #B47F2A; --error: #A42535; --error-bg: #FFF1F2;
+  --success-bg: #E7F6EB; --success-text: #176436; --ring: #0C6B49; --shadow: 0 3px 14px #1B49340A;
+  --radius: 14px; --radius-small: 9px; --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-6: 24px; --space-8: 32px;
   font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text); background: var(--bg); font-synthesis: none;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #10181f; --surface: #19242e; --surface-soft: #202e39; --text: #e8eff5; --muted: #aebfcc;
   --border: #344654; --input-border: #6e8496; --accent: #8ad8b9; --accent-hover: #b4e9d2; --accent-soft: #233e35; --on-accent: #102b20;
+  --brand-signal: var(--accent);
   --warning-bg: #352c1d; --warning-text: #f2d49b; --warning-border: #937846; --error: #ffaab4; --error-bg: #3e252d;
   --success-bg: #223e31; --success-text: #aae0b8; --ring: #81c8ed; --shadow: 0 4px 20px #00000010;
 }
@@ -19,6 +22,7 @@
     color-scheme: dark;
     --bg: #10181f; --surface: #19242e; --surface-soft: #202e39; --text: #e8eff5; --muted: #aebfcc;
     --border: #344654; --input-border: #6e8496; --accent: #8ad8b9; --accent-hover: #b4e9d2; --accent-soft: #233e35; --on-accent: #102b20;
+  --brand-signal: var(--accent);
     --warning-bg: #352c1d; --warning-text: #f2d49b; --warning-border: #937846; --error: #ffaab4; --error-bg: #3e252d;
     --success-bg: #223e31; --success-text: #aae0b8; --ring: #81c8ed; --shadow: 0 4px 20px #00000010;
   }
@@ -59,7 +63,7 @@ button:hover { background: var(--accent-hover); } button:disabled { opacity: .6;
 .tariff-status { border: 1px solid var(--border); color: var(--muted); background: var(--surface-soft); padding: var(--space-3); font-size: .9rem; } .tariff-status p { margin: var(--space-1) 0 0; } .tariff-status strong { color: var(--text); }
 .tariff-status.warning { border-left: 3px solid var(--warning-border); }
 .store-strip { display: flex; gap: var(--space-3); align-items: center; justify-content: space-between; margin: var(--space-6) 0 var(--space-4); } .store-strip p { font-size: .8rem; color: var(--muted); margin: 3px 0; } .store-strip button { flex-shrink: 0; margin: 0; }
-.financial-summary { border-top: 3px solid var(--accent); background: var(--surface); }
+.financial-summary { border-top: 3px solid var(--brand-signal); background: var(--surface); }
 .summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); border-bottom: 1px solid var(--border); padding: var(--space-2) 0 var(--space-6); }
 .summary-grid span { color: var(--muted); font-size: .9rem; display: block; } .summary-grid strong { display: block; font-size: clamp(.94rem, 1.3vw, 1.3rem); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; margin-top: var(--space-1); }
 .profit-value { padding: var(--space-6) 0 var(--space-3); } .profit-value > span { color: var(--muted); font-size: .9rem; } .profit-value strong { color: var(--accent); display: block; font-size: clamp(2rem, 3.6vw, 3.5rem); line-height: 1.35; letter-spacing: -.05rem; font-weight: 650; overflow-wrap: anywhere; }
@@ -236,3 +240,26 @@ input, select, button { scroll-margin-block: 28px; }
 .shop-saved-seller { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); }
 .shop-saved-seller p { margin: var(--space-2) 0; }
 @media (max-width: 700px) { .shop-checklist-items button { width: 100%; } }
+
+/* UX V4 — light-first visual hierarchy. Semantic variables keep dark/system themes functional. */
+.experience-app > header { padding-bottom: 8px; }
+.experience-app .welcome { border-color: var(--border); }
+.experience-app .welcome > h2 { color: var(--text); }
+.experience-app .step-nav { border: 1px solid var(--border); box-shadow: var(--shadow); }
+.experience-app .step-nav button[aria-current="step"] { font-weight: 700; }
+.experience-app .step-nav button[aria-current="step"] > span { border-color: var(--accent); color: var(--accent); background: var(--surface); }
+.experience-app .step-nav button[disabled] { opacity: .6; }
+.experience-app .calculation-content > section { border-color: var(--border); }
+.experience-app .financial-summary { border-color: var(--border); border-top-color: var(--brand-signal); }
+.experience-app .headline-price { background: var(--accent-soft); }
+.experience-app .intent-cards button[aria-pressed="true"] { box-shadow: inset 0 0 0 1px var(--accent); }
+.experience-app .primary-import .drop-zone { border-radius: var(--radius); }
+.experience-app .primary-import .drop-zone:focus-within { outline: 3px solid var(--ring); outline-offset: 3px; }
+.experience-app .field-error { font-weight: 650; }
+.experience-app .shop-checklist { border-left: 3px solid var(--accent); }
+.experience-app .guided-issues { border-left: 3px solid var(--warning-border); }
+.experience-app .status-badge { font-weight: 700; }
+.experience-app .scope-note { color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) {
+  .experience-app button:not(:disabled) { transition: background-color 120ms ease, border-color 120ms ease; }
+}

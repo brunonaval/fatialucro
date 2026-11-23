@@ -40,6 +40,16 @@ A UX V4 está em andamento na branch experimental do PR #1. A versão instalada 
 - Esta conferência não altera a engine financeira, não certifica tarifas vigentes e não garante que o lucro final seja determinável. Assunções documentais e taxas sem fórmula permanecem no fluxo existente.
 - Há testes de regressão para CPF/CNPJ, programas desconhecidos ou ativos, mudança de data, volume na fronteira, frete e renderização com perfil de loja já salvo.
 
+## Incremento: tema claro com referência visual Bambu
+
+- O tema claro recebeu nova paleta de superfícies brancas, fundo cinza-esverdeado suave, textos neutros escuros e ações verdes legíveis.
+- O verde de referência `#00AE42` é usado somente como detalhe decorativo; botões e links adotam `#087A3D` para manter contraste com texto branco e superfícies claras.
+- Campos, cards, navegação de etapas, importação, resumo financeiro e mensagens de erro receberam ajustes de hierarquia consistentes.
+- Tokens escuros existentes foram preservados. No escuro e no sistema com preferência escura, a faixa de resultado segue `var(--accent)`.
+- Testes automáticos de contraste, controles visíveis e seleção de tema foram adicionados em `tests/theme-contrast.test.ts`.
+- Especificação detalhada, origem da inspiração e verificações manuais pendentes em `docs/design-system-light.md`.
+- Nenhuma fórmula de precificação, tarifa Shopee, dado ou importador foi alterado.
+
 ## Pendências (não confundir com funcionalidade entregue)
 
 - Homologação visual no Windows/WebView2 por usuário real, incluindo rolagem e foco de campos em painéis.
