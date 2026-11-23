@@ -59,8 +59,9 @@ export function parseGcode(text: string, fileName = 'impressao.gcode'): PrintImp
       else if (grams === null || !sum.eq(grams)) { grams = null; weights = []; warnings.push('Massa total e massas individuais divergentes ou inválidas. Confira manualmente.'); }
     }
   }
-  const material = unique(['filament_type', 'material']) ?? null;
-  const names = material?.split(';').map(name => name.trim().slice(0, 300)).filter(Boolean) ?? [];
+  const configuredMaterial = unique(['filament_type', 'material']) ?? null;
+  const names = configuredMaterial?.split(';').map(name => name.trim().slice(0, 300)).filter(Boolean) ?? [];
+  const material = [...new Set(names)].join('; ') || null;
   const printer = unique(['printer_model', 'printer model', 'printer_settings_id', 'machine_model']) ?? null;
   const count = numeric(unique(['total object count', 'object_count', 'number of objects']) ?? undefined);
   const pieces = count !== null && new D(count).isInteger() && new D(count).gte(1) && new D(count).lte(10_000) ? new D(count).toNumber() : null;
@@ -71,5 +72,7 @@ export function parseGcode(text: string, fileName = 'impressao.gcode'): PrintImp
   if (weights.length > 32) throw new Error('Mais de 32 materiais não são suportados.');
   return { fileName, format: 'gcode', sliced: seconds !== null || grams !== null, printer: printer?.slice(0, 300) ?? null, material: material?.slice(0, 300) ?? null,
     plates: [{ id: '1', name: 'Impressão', seconds, grams, pieces,
-      materials: weights.length > 1 && weights.length === names.length ? weights.map((weight, index) => ({ name: names[index]!, grams: weight })) : [{ name: material ?? 'Material não identificado', grams }] }], warnings };
+      materials: weights.length > 1 && weights.length === names.length
+        ? weights.map((weight, index) => ({ name: names[index]!, grams: weight })).filter(item => new D(item.grams).gt(0))
+        : [{ name: material ?? 'Material não identificado', grams }] }], warnings };
 }

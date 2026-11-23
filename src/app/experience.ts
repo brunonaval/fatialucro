@@ -33,7 +33,8 @@ export function withExperience(draft: CalculatorDraft): CalculatorDraft & { ux: 
 }
 export function applyImportedPlate(draft: CalculatorDraft, data: PrintImport, plate: ImportedPlate): CalculatorDraft {
   const updated = applyPlate(draft, plate); const ux = withExperience(draft).ux;
-  return { ...updated, ux: { ...ux, entry: 'import', stage: 'print', filament: { mode: 'spool', amount: '', netGrams: '' }, origin: { fileName: data.fileName, printer: data.printer, material: data.material, plateId: plate.id, plateName: plate.name, plateCount: data.plates.length, grams: plate.grams, seconds: plate.seconds, pieces: plate.pieces, warnings: data.warnings, materials: plate.materials } } };
+  const material = [...new Set(plate.materials.map(item => item.name))].join('; ') || null;
+  return { ...updated, ux: { ...ux, entry: 'import', stage: 'print', filament: { mode: 'spool', amount: '', netGrams: '' }, origin: { fileName: data.fileName, printer: data.printer, material, plateId: plate.id, plateName: plate.name, plateCount: data.plates.length, grams: plate.grams, seconds: plate.seconds, pieces: plate.pieces, warnings: data.warnings, materials: plate.materials } } };
 }
 export function validateReusableProfile(draft: CalculatorDraft, kind: 'filament' | 'printer') {
   const ux = withExperience(draft).ux;

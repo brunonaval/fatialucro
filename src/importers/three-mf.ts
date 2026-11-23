@@ -110,7 +110,8 @@ export function parseThreeMf(bytes: Uint8Array, fileName = 'impressao.3mf'): Pri
     try { settings = object(JSON.parse(rawSettings)); } catch { warnings.push('Configurações JSON do projeto inválidas; impressora/material podem exigir preenchimento manual.'); }
   }
   const printer = string(settings.printer_model) ?? string(settings.printer_settings_id);
-  const material = array(settings.filament_type).map(string).filter((item): item is string => item !== null).join('; ') || null;
+  // Project settings list configured slots, not necessarily filaments consumed on this plate.
+  const configuredMaterial = [...new Set(array(settings.filament_type).map(string).filter((item): item is string => item !== null))].join('; ') || null;
   const model = files.get('metadata/model_settings.config');
   const modelPlates = model ? array(object(xml(model).config).plate).map(object) : [];
   const slice = files.get('metadata/slice_info.config');
@@ -124,11 +125,16 @@ export function parseThreeMf(bytes: Uint8Array, fileName = 'impressao.3mf'): Pri
       const id = meta.get('index') ?? string(plate['@index']);
       if (id === null || id === undefined || !/^\d+$/.test(id) || ids.has(id)) throw new Error('Placa sem índice válido ou duplicada no 3MF.');
       ids.add(id);
-      const materials = array(plate.filament).map(value => {
+      const declaredMaterials = array(plate.filament).map(value => {
         const filament = object(value);
         return { name: string(filament['@type']) ?? 'Material não identificado', grams: numeric(filament['@used_g']) };
       });
-      const grams = materials.length && materials.every(item => item.grams !== null) ? materials.reduce((sum, item) => sum.plus(item.grams!), new D(0)).toFixed() : null;
+      // Bambu may list empty AMS/project slots with used_g=0. They must not become billable rows.
+      // Keep entries with missing mass: unknown consumption must never silently become zero.
+      const materials = declaredMaterials.filter(item => item.grams === null || new D(item.grams).gt(0));
+      const grams = materials.length && declaredMaterials.every(item => item.grams !== null)
+        ? declaredMaterials.reduce((sum, item) => sum.plus(item.grams!), new D(0)).toFixed() : null;
+      if (declaredMaterials.length && !materials.length) warnings.push(`Placa ${id}: nenhum filamento com consumo positivo foi identificado. Confira os dados de fatiamento.`);
       const matching = modelPlates.find(value => metadata(value).get('plater_id') === id || metadata(value).get('index') === id);
       const declaredCount = numeric(meta.get('object_count') ?? meta.get('number_of_objects'));
       const instances = matching ? array(matching.model_instance).length : 0;
@@ -149,5 +155,9 @@ export function parseThreeMf(bytes: Uint8Array, fileName = 'impressao.3mf'): Pri
     }
   }
   if (!plates.length) warnings.push('Este 3MF não contém dados de fatiamento compatíveis. Informe peso, tempo e quantidade manualmente; geometria não foi convertida em estimativa de consumo.');
+  // Prefer actual per-plate consumption over the entire project's configured slot list.
+  // Preserve separate consumed entries for pricing even if their material types are equal.
+  const consumedTypes = [...new Set(plates.flatMap(plate => plate.materials.map(item => item.name)))];
+  const material = plates.length ? consumedTypes.join('; ') || null : configuredMaterial;
   return { fileName, format: '3mf', sliced: plates.length > 0, printer, material, plates, warnings: [...new Set(warnings)] };
 }

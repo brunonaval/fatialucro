@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { strToU8, zipSync } from 'fflate';
 import { durationSeconds } from '../src/importers/gcode';
 import { importPrintFile, parseGcode, parseThreeMf } from '../src/importers';
+import { applyImportedPlate } from '../src/app/experience';
+import { defaultDraft } from '../src/app/model';
 
 const archive = (files: Record<string, string>) => zipSync(Object.fromEntries(Object.entries(files).map(([name, value]) => [name, strToU8(value)])));
 const slice = `<config><plate><metadata key="index" value="1"/><metadata key="prediction" value="5400"/><metadata key="object_count" value="3"/><filament id="1" type="PLA" used_g="20.5"/><filament id="2" type="PETG" used_g="10"/></plate><plate><metadata key="index" value="2"/><metadata key="prediction" value="600"/><filament type="PLA" used_g="5"/></plate></config>`;
@@ -36,6 +38,40 @@ describe('importação local de metadados, sem fatiar geometria', () => {
   it('extrai G-code Bambu/Prusa com múltiplos materiais sem presumir densidade', () => {
     const parsed = parseGcode('; estimated printing time (normal mode) = 1h 2m 3s\n; filament used [g] = 1.25; 2.5\n; filament_type = PLA;PETG\n; printer_model = A1\n; object_count = 2\nG1 E5000');
     expect(parsed).toMatchObject({ printer: 'A1', material: 'PLA;PETG', plates: [{ seconds: '3723', grams: '3.75', pieces: 2, materials: [{ name: 'PLA', grams: '1.25' }, { name: 'PETG', grams: '2.5' }] }] });
+  });
+  it('quatro PLA configurados, mas só um consumido, viram um único material na placa', () => {
+    const parsed = parseThreeMf(archive({
+      'Metadata/project_settings.config': JSON.stringify({ printer_model: 'Bambu A1', filament_type: ['PLA', 'PLA', 'PLA', 'PLA'] }),
+      'Metadata/slice_info.config': '<config><plate><metadata key="index" value="1"/><metadata key="prediction" value="3600"/><metadata key="object_count" value="1"/><filament id="1" type="PLA" used_g="0"/><filament id="2" type="PLA" used_g="22.31"/><filament id="3" type="PLA" used_g="0"/><filament id="4" type="PLA" used_g="0"/></plate></config>',
+    }));
+    expect(parsed.material).toBe('PLA');
+    expect(parsed.plates[0]).toMatchObject({ grams: '22.31', materials: [{ name: 'PLA', grams: '22.31' }] });
+    const draft = applyImportedPlate(defaultDraft(), parsed, parsed.plates[0]!);
+    expect(draft.materials).toHaveLength(1);
+    expect(draft.ux?.origin?.material).toBe('PLA');
+  });
+  it('PLA realmente consumidos em dois filamentos permanecem separados para a precificação', () => {
+    const parsed = parseThreeMf(archive({
+      'Metadata/project_settings.config': JSON.stringify({ filament_type: ['PLA', 'PLA', 'PLA', 'PLA'] }),
+      'Metadata/slice_info.config': '<config><plate><metadata key="index" value="1"/><filament id="1" type="PLA" color="#000000" used_g="12.3"/><filament id="2" type="PLA" color="#FFFFFF" used_g="8.2"/><filament id="3" type="PLA" used_g="0"/><filament id="4" type="PLA" used_g="0"/></plate></config>',
+    }));
+    expect(parsed.material).toBe('PLA');
+    expect(parsed.plates[0]).toMatchObject({ grams: '20.5', materials: [{ name: 'PLA', grams: '12.3' }, { name: 'PLA', grams: '8.2' }] });
+    expect(applyImportedPlate(defaultDraft(), parsed, parsed.plates[0]!).materials).toHaveLength(2);
+  });
+  it('projeto geométrico com quatro slots PLA não é confundido com quatro materiais consumidos', () => {
+    const parsed = parseThreeMf(archive({
+      'Metadata/project_settings.config': JSON.stringify({ filament_type: ['PLA', 'PLA', 'PLA', 'PLA'] }),
+    }));
+    expect(parsed.material).toBe('PLA');
+    expect(parsed.sliced).toBe(false);
+    expect(parsed.plates).toEqual([]);
+  });
+  it('G-code de quatro slots mostra PLA uma vez e descarta pesos zero', () => {
+    const parsed = parseGcode('; filament_type = PLA;PLA;PLA;PLA\\n; filament used [g] = 22.31;0;0;0\\n; TIME:3600');
+    expect(parsed.material).toBe('PLA');
+    expect(parsed.plates[0]?.materials).toEqual([{ name: 'PLA', grams: '22.31' }]);
+    expect(parsed.plates[0]?.grams).toBe('22.31');
   });
   it('Cura TIME em segundos é aceito; comprimento e extrusão não viram peso', () => {
     const parsed = parseGcode(';TIME:120.5\n;Filament used: 2m\nG1 E5000\n; object_count = 1');
