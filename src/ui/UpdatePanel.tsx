@@ -59,6 +59,13 @@ export function UpdatePanel({ beforeInstall }: { beforeInstall?: () => Promise<v
     }
   }
 
+  async function dismiss() {
+    const update = available.current;
+    available.current = null;
+    if (update) { try { await update.close(); } catch { /* Resource already released. */ } }
+    setVersion(''); setNotes(''); setPhase('idle');
+  }
+
   async function install() {
     if (!SIGNED_UPDATER_ENABLED || !available.current || phase !== 'available') return;
     try {
@@ -96,7 +103,7 @@ export function UpdatePanel({ beforeInstall }: { beforeInstall?: () => Promise<v
         {notes && <details><summary>O que mudou</summary><p className="update-notes">{notes}</p></details>}
         <p>O FatiaLucro vai baixar e verificar a assinatura da atualização, instalar e reiniciar. Seu cálculo será salvo antes de começar.</p>
         <button type="button" onClick={() => { void install(); }}>Atualizar e reiniciar</button>
-        <button type="button" className="secondary" onClick={() => { void checkNow(); }}>Deixar para depois</button>
+        <button type="button" className="secondary" onClick={() => { void dismiss(); }}>Deixar para depois</button>
       </div>}
       {phase === 'installing' && <div className="update-progress">
         <strong>Baixando e verificando a atualização…</strong>
