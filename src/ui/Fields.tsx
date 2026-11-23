@@ -34,8 +34,9 @@ export function Check({ name, children }: { name: string; children: ReactNode })
 }
 export function NumericInput({ value, onValue, kind, name, label, required = true }: { value: string; onValue: (value: string) => void; kind: FieldKind; name: string; label: string; required?: boolean }) {
   const id = useId(); const [editing, setEditing] = useState<string | null>(null); const [touched, setTouched] = useState(false);
-  const { issues, showErrors } = useForm();
-  const guided = showErrors ? issues?.find(item => item.field === name)?.message ?? '' : '';
+  // NumericInput also supports standalone read-only previews and direct unit tests.
+  const form = useContext(FormContext);
+  const guided = form?.showErrors ? form.issues?.find(item => item.field === name)?.message ?? '' : '';
   const local = !touched || editing !== null ? '' : !value && !required ? '' : !value ? ({ 'spool-price': 'Informe o preço pago pela bobina.', 'spool-weight': 'Informe o peso líquido de filamento comprado.', hours: 'Informe o tempo de impressão.', shipping: 'Confirme o custo líquido do frete.' } as Record<string, string>)[name] ?? `Informe ${label.toLowerCase()}.` : numericIssue(value, kind);
   const issue = guided || local;
   const update = (input: string) => {
