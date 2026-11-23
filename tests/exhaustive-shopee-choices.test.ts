@@ -19,7 +19,7 @@ describe('Matriz exaustiva de opções Shopee', () => {
   for (const seller of ['CPF', 'CNPJ'] as const) for (const mode of modes) {
     it(seller + ' / ' + mode + ': todas as combinações válidas de programas, frete, volume e embalagem', () => {
       const volumes = seller === 'CPF' ? ['above', 'below', 'equal', 'unknown'] as const : ['unknown'] as const;
-      let total = 0; let failures = 0; const examples: string[] = [];
+      let total = 0; let failures = 0; let unreachable = 0; const examples: string[] = [];
       for (const ret of returns) for (const highlight of states) for (const ads of states) for (const affiliates of states) for (const advance of states)
       for (const ship of shipping) for (const vol of volumes) for (const pack of packaging) {
         const d = scenario();
@@ -32,6 +32,11 @@ describe('Matriz exaustiva de opções Shopee', () => {
           const result = calculateExperience(d, bundledTables);
           if (result.kind === 'cost') throw new Error('resultado de venda ausente');
           if (mode !== 'direct' && result.data.solution?.status !== 'found' && !result.referencePreview) throw new Error('preço de referência ausente');
+          if (mode !== 'direct' && result.referencePreview) {
+            const ref = result.referencePreview;
+            if (ref.lower === null && ref.unreachableScenarios === 0) throw new Error('preço ausente sem diagnóstico de meta impossível');
+            if (ref.unreachableScenarios > 0) unreachable++;
+          }
           if (mode === 'direct' && !Number.isFinite(Number(result.data.result.operatingCosts))) throw new Error('custos ausentes');
           if (JSON.stringify(d) !== before) throw new Error('respostas modificadas');
           if (result.data.result.status === 'partial' && result.data.result.operatingProfit !== null) throw new Error('lucro incompleto tratado como confirmado');
@@ -40,7 +45,7 @@ describe('Matriz exaustiva de opções Shopee', () => {
           if (examples.length < 12) examples.push([ret, highlight, ads, affiliates, advance, ship, vol, pack].join('/') + ': ' + String(err));
         }
       }
-      console.info('MATRIZ ' + seller + ' ' + mode + ': ' + total + ' casos, ' + failures + ' falhas; ' + examples.join(' | '));
+      console.info('MATRIZ ' + seller + ' ' + mode + ': ' + total + ' casos, ' + failures + ' falhas, ' + unreachable + ' com meta fora do intervalo em pelo menos um cenário; ' + examples.join(' | '));
       expect(total).toBe(4 * 81 * 3 * volumes.length * 3);
       expect(failures, examples.join('\n')).toBe(0);
     }, 240000);
@@ -100,6 +105,22 @@ describe('Matriz exaustiva de opções Shopee', () => {
     d.fields.ads = 'active';
     expect(guidedIssues(d).some(i => i.field === 'shopee:adsEasy:value')).toBe(true);
     expect(guidedIssues(d).some(i => i.field === 'shopee:adsEasy:scope')).toBe(true);
+  });
+  it('meta não atingida no intervalo informa limite sem fabricar preço nem modificar respostas', () => {
+    const d = scenario();
+    Object.assign(d.fields, { seller: 'CPF', calculation: 'margin', returns: 'billable', highlight: 'active', ads: 'inactive', affiliates: 'inactive', advance: 'inactive', shipping: '2.50' });
+    Object.assign(d.ux!, { shipping: 'yes', volume: { answer: 'above', threshold: 450, date: '2026-11-23' }, packagingDecision: 'include', packagingIncluded: true });
+    const before = structuredClone(d);
+    expect(guidedIssues(d)).toEqual([]);
+    const output = calculateExperience(d);
+    if (output.kind !== 'blocked-search') throw new Error('expected goal outside range');
+    expect(output.referencePreview).toMatchObject({ lower: null, upper: null, searchEnd: '35.00', unreachableScenarios: 1 });
+    expect(d).toEqual(before);
+    d.fields.maxPrice = '40.00';
+    const updated = calculateExperience(d);
+    if (updated.kind !== 'blocked-search' || !updated.referencePreview) throw new Error('expected reference');
+    expect(Number(updated.referencePreview.lower)).toBeGreaterThan(35);
+    expect(updated.referencePreview.unreachableScenarios).toBe(0);
   });
   it('marca exatamente o campo obrigatório e aceita o frete desconhecido', () => {
     const d = scenario(); d.fields.seller = 'CPF'; d.fields.calculation = 'margin'; d.ux!.shipping = 'yes'; d.fields.shipping = '';
