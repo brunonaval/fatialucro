@@ -21,7 +21,7 @@ describe('UX V4 — conferência de condições da Shopee sem repetir todas as p
     const draft = newCalculationDraft(new Date(2026, 10, 22));
     const checks = shopeeCheckpoints(draft, bundledTables);
     expect(checks.map(check => check.id)).toEqual(['shop-seller', 'shop-programs', 'shop-shipping']);
-    expect(checks.filter(check => check.state === 'pending')).toHaveLength(3);
+    expect(checks.filter(check => check.state === 'pending')).toHaveLength(1);\n    expect(checks.filter(check => check.state === 'review')).toHaveLength(2);
     expect(draft.fields.returns).toBe('unknown');
     expect(draft.ux?.shipping).toBe('unknown');
   });
@@ -38,7 +38,7 @@ describe('UX V4 — conferência de condições da Shopee sem repetir todas as p
     draft.ux!.shipping = 'unknown';
     draft.fields.shippingConfirmed = false;
     const checks = shopeeCheckpoints(draft, bundledTables);
-    expect(checks.filter(check => check.state === 'pending').map(check => check.id)).toEqual(['shop-volume', 'shop-shipping']);
+    expect(checks.filter(check => check.state === 'review').map(check => check.id)).toEqual(['shop-volume', 'shop-shipping']);
   });
 
   it('exatamente no limite dos 90 dias exige revisão, sem afirmar cobrança automática', () => {
@@ -64,7 +64,7 @@ describe('UX V4 — conferência de condições da Shopee sem repetir todas as p
     expect(checks.find(check => check.id === 'shop-programs')?.state).toBe('review');
     expect(checks.find(check => check.id === 'shop-programs')?.detail).toContain('cobrança ainda depende');
     draft.fields.affiliates = 'unknown';
-    expect(shopeeCheckpoints(draft, bundledTables).find(check => check.id === 'shop-programs')?.state).toBe('pending');
+    expect(shopeeCheckpoints(draft, bundledTables).find(check => check.id === 'shop-programs')?.state).toBe('review');
   });
 
   it('seleção de frete exige confirmação e número válido, sem converter desconhecido em zero', () => {
