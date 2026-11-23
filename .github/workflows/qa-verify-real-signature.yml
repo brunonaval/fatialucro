@@ -1,0 +1,79 @@
+name: Validate real updater keys on Windows (no release)
+
+on:
+  push:
+    branches: [qa/verify-official-signature-20261123]
+
+permissions:
+  contents: read
+
+jobs:
+  windows-signed-preflight:
+    runs-on: windows-latest
+    timeout-minutes: 85
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      TAURI_UPDATER_PUBLIC_KEY: ${{ vars.TAURI_UPDATER_PUBLIC_KEY }}
+      VITE_FATIALUCRO_SIGNED_UPDATER: 'true'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install Rust stable (MSVC)
+        shell: pwsh
+        run: |
+          rustup default stable-msvc
+          rustup component add rustfmt clippy
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: real-signed-smoke-${{ hashFiles('src-tauri/Cargo.toml', 'src-tauri/Cargo.lock') }}
+          restore-keys: real-signed-smoke-
+      - run: npm ci
+      - run: npm run check
+      - run: npm audit --audit-level=high
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+      - run: cargo clippy --locked --manifest-path src-tauri/Cargo.toml --features signed-updater --all-targets -- -D warnings
+      - name: Validate real signing credentials and build config without releasing
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) { throw 'Missing private key secret.' }
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD)) { throw 'Missing signer password secret.' }
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_UPDATER_PUBLIC_KEY)) { throw 'Missing updater public-key variable.' }
+          try {
+            $publicKeyDocument = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:TAURI_UPDATER_PUBLIC_KEY.Trim()))
+          } catch { throw 'Public key is not a valid Tauri minisign Base64 value.' }
+          $lines = $publicKeyDocument -split '\r?\n'
+          if ($lines.Count -lt 2 -or -not $lines[0].StartsWith('untrusted comment: minisign public key') -or $lines[1] -notmatch '^RW[A-Za-z0-9+/=]{40,}$') { throw 'Public-key contents are invalid.' }
+          $config = @{
+            bundle = @{ createUpdaterArtifacts = $true }
+            plugins = @{ updater = @{
+              pubkey = $env:TAURI_UPDATER_PUBLIC_KEY.Trim()
+              endpoints = @('https://github.com/brunonaval/fatialucro/releases/latest/download/latest.json')
+              requireSignedVersion = $true
+              windows = @{ installMode = 'passive' }
+            } }
+            app = @{ security = @{ capabilities = @(@{
+              identifier = 'signed-desktop'
+              windows = @('main')
+              permissions = @('core:default', 'updater:allow-check', 'updater:allow-download-and-install')
+            }) } }
+          }
+          $config | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath src-tauri/updater-release.conf.json -Encoding utf8
+          Write-Host 'Keys present and updater config prepared. No secret values were displayed.'
+      - name: Build signed Windows NSIS and verify signature file exists
+        shell: pwsh
+        run: |
+          npm run tauri -- build --features signed-updater --config src-tauri/updater-release.conf.json --ci -- --locked
+          if ($LASTEXITCODE -ne 0) { throw 'Signed production-mode build failed.' }
+          $exes = @(Get-ChildItem -LiteralPath 'src-tauri/target/release/bundle/nsis' -Filter '*-setup.exe')
+          $sigs = @(Get-ChildItem -LiteralPath 'src-tauri/target/release/bundle/nsis' -Filter '*.exe.sig')
+          if ($exes.Count -ne 1 -or $sigs.Count -ne 1 -or $sigs[0].Length -lt 50) { throw 'Expected signed NSIS installer or signature is missing.' }
+          if ($sigs[0].Name -ne ($exes[0].Name + '.sig')) { throw 'Signature does not match the installer filename.' }
+          Write-Host 'Production signer built a signed Windows installer. No release was created and no artifact was uploaded.'
