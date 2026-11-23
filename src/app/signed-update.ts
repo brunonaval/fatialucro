@@ -9,7 +9,7 @@ export const SIGNED_UPDATER_ENABLED = import.meta.env.VITE_FATIALUCRO_SIGNED_UPD
 export type SignedUpdateInfo = { version: string; notes: string; update: Update };
 
 export async function checkSignedUpdate(
-  importer: () => Promise<typeof import('@tauri-apps/plugin-updater')> =
+  importer: () => Promise<{ check: (options?: { timeout?: number }) => Promise<Update | null> }> =
     () => import('@tauri-apps/plugin-updater'),
 ): Promise<SignedUpdateInfo | null> {
   const { check } = await importer();
