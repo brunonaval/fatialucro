@@ -32,10 +32,11 @@ export function ExperienceResult({ state, frozen, onConfirm, onResolve, onSell, 
   if (sale && !frozen) { const table = tables.find(item => item.id === sale.catalog.provenance?.tableId); if (table) alerts.push(...tariffHints(table, sale.input.unitPrice)); }
   return <section id="result-step" className="experience-result">
     <div className="result-title"><span className="step-label">Resultado</span><span className={`status-badge ${partial ? 'warning' : ''}`}>{demo ? 'Exemplo fictício · ' : ''}{status}</span></div>
-    <h2>{sale ? sale.solution?.status === 'found' ? 'Preço mínimo para a meta informada' : 'Quanto sobra neste pedido?' : 'Seu custo de impressão, explicado'}</h2>
+    <h2>{sale ? sale.solution?.status === 'found' ? sale.searchRange?.automaticFloor ? 'Quanto cobrar na faixa documentada da Shopee' : 'Preço mínimo para a meta informada' : 'Quanto sobra neste pedido?' : 'Seu custo de impressão, explicado'}</h2>
     {frozen && <p className="help-box">Cálculo salvo: usa os dados e as regras originais. Atualizar o catálogo não modifica este histórico.</p>}
     {demo && <p className="notice">Demonstração com dados fictícios. Estes valores não descrevem sua oficina e não serão salvos como dados reais.</p>}
     {sale ? <FinancialMetrics output={output} advanced={ux.mode === 'advanced'} /> : preview && <CostMetrics preview={preview} />}
+    {sale?.searchRange?.automaticFloor && <p className="help-box">Preço mínimo encontrado a partir de {currency(sale.searchRange.automaticFloor)}. Não afirmamos que seja o menor preço possível abaixo dessa faixa, onde a cobrança CPF é desconhecida.</p>}
     {partial && <PendingQuestions pending={sale!.result.pending} {...(onResolve ? { onResolve } : {})} />}
     {partial && <p>Lucro final indisponível enquanto houver cobranças desconhecidas.</p>}
     {sale?.result.confidence === 'provisional' && <p className="notice">Algumas regras usadas ainda precisam ser confirmadas com a Shopee. As hipóteses estão identificadas no cálculo completo.</p>}

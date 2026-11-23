@@ -272,3 +272,20 @@ input, select, button { scroll-margin-block: 28px; }
 .material-row .rate-preview button { min-height: 44px; max-width: 100%; white-space: normal; text-align: left; }
 .guided-issues > button { max-width: 100%; min-height: 44px; }
 .guided-issues .text-button { font-weight: 650; }
+
+/* UX: short primary flow, advanced settings by deliberate disclosure. */
+.shop-conditions, .optional-sale-settings, .profile-shortcut {
+  margin: var(--space-3) 0; border: 1px solid var(--border);
+  border-radius: var(--radius-small); padding: var(--space-3);
+  background: var(--surface);
+}
+.shop-conditions > summary, .optional-sale-settings > summary,
+.profile-shortcut > summary { cursor: pointer; font-weight: 650; color: var(--accent); }
+.shop-conditions[open] > summary, .optional-sale-settings[open] > summary,
+.profile-shortcut[open] > summary { padding-bottom: var(--space-3); border-bottom: 1px solid var(--border); margin-bottom: var(--space-3); }
+.optional-costs { margin: var(--space-3) 0; }
+.optional-costs > summary { font-weight: 650; }
+.profile-shortcut .field-hint { margin-top: var(--space-2); }
+@media (max-width: 700px) {
+  .shop-conditions, .optional-sale-settings, .profile-shortcut { padding: var(--space-2); }
+}

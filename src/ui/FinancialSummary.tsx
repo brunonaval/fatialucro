@@ -24,7 +24,8 @@ export function FinancialMetrics({ output, advanced = false }: { output: Experie
   if (output.kind !== 'sale') return null;
   const { input, result } = output.data; const complete = result.status === 'complete';
   const ratio = (value: string | null) => value === null ? 'Pendente' : `${new D(value).mul(100).toFixed(2).replace('.', ',')}%`;
-  return <><div className="headline-price"><span>Preço de venda por {input.manufacturing.partsPerUnit && input.manufacturing.partsPerUnit > 1 ? 'kit' : 'unidade'}</span><strong>{currency(input.unitPrice)}</strong><small>{input.quantity} unidade(s) comerciais no pedido</small></div>
+  return <><div className="headline-price"><span>{output.data.solution?.status === 'found' ? 'Preço mínimo calculado por ' : 'Preço de venda por '}{input.manufacturing.partsPerUnit && input.manufacturing.partsPerUnit > 1 ? 'kit' : 'unidade'}</span><strong>{currency(input.unitPrice)}</strong><small>{input.quantity} unidade(s) comerciais no pedido</small></div>
+    {output.data.searchRange?.automaticFloor && <p className="field-hint">Busca limitada a preços a partir de {currency(output.data.searchRange.automaticFloor)}. Valores menores não foram avaliados por falta da fórmula regressiva CPF.</p>}
     <dl className="result-metrics">
       <div className="metric-row"><dt>Total da venda</dt><dd>{currency(result.grossSales)}</dd></div>
       <div className="metric-row"><dt>{complete ? output.data.catalog.marketplace === 'direct' ? 'Taxas de marketplace' : 'Descontos da Shopee — tarifas' : 'Subtotal de tarifas conhecidas — incompleto'}</dt><dd>{currency(result.knownMarketplaceFees)}</dd></div>

@@ -91,7 +91,11 @@ export function App() {
         input.focus({ preventScroll: false }); input.scrollIntoView({ block: 'center' }); return;
       }
     }
-    const node = document.getElementById(id); if (node) { node.setAttribute('tabindex', '-1'); node.focus({ preventScroll: true }); }
+    const node = document.getElementById(id); if (node) {
+      for (let ancestor = node.parentElement; ancestor; ancestor = ancestor.parentElement)
+        if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
+      node.setAttribute('tabindex', '-1'); node.focus({ preventScroll: false }); node.scrollIntoView({ block: 'center' });
+    }
   }, [page, ux.stage, ux.entry]);
   useEffect(() => {
     if (!ready || !repository.current || ux.entry === 'none' || example) return;
@@ -192,7 +196,15 @@ export function App() {
   }
   function resolvePending(target: string) {
     focusTarget.current = target;
-    if (ux.stage === 'sale') { document.getElementById(target)?.focus(); focusTarget.current = null; }
+    if (ux.stage === 'sale') {
+      const node = document.getElementById(target);
+      if (node) {
+        for (let ancestor = node.parentElement; ancestor; ancestor = ancestor.parentElement)
+          if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
+        node.focus(); node.scrollIntoView({ block: 'center' });
+      }
+      focusTarget.current = null;
+    }
     else update({ ...current, ux: { ...ux, intent: 'sale', stage: 'sale' } });
   }
   async function saveStoreDraft(value: CalculatorDraft) {
@@ -225,7 +237,7 @@ export function App() {
           <CalculationNavigation ux={ux} onStage={setStage} />
           <form onSubmit={submit} noValidate>
             {show('print') && <PrintStep filaments={realEntries} />}
-            {show('costs') && <section id="costs-step"><div className="section-heading"><span className="step-label">Custos</span><h2>Quanto custa fabricar esta peça?</h2><p>Para começar, informe somente o preço do filamento. Energia, máquina e trabalho são opcionais.</p></div><FilamentFields entries={realEntries} onProfile={useProfile} onSave={value => saveProfile(value, 'filament')} />{ux.machineIncluded ? <PrinterFields entries={realEntries} onProfile={useProfile} /> : <details className="optional-costs"><summary>Incluir energia e custo da impressora (opcional)</summary><PrinterFields entries={realEntries} onProfile={useProfile} /></details>}{ux.intent === 'cost' && <details><summary>Incluir embalagem (opcional)</summary><PackagingFields /></details>}<OptionalCosts /></section>}
+            {show('costs') && <section id="costs-step"><div className="section-heading"><span className="step-label">Custos</span><h2>Quanto custa fabricar esta peça?</h2><p>Para começar, informe somente o preço do filamento. Energia, máquina e trabalho são opcionais.</p></div><FilamentFields entries={realEntries} onProfile={useProfile} onSave={value => saveProfile(value, 'filament')} />{ux.mode === 'advanced' ? <PrinterFields entries={realEntries} onProfile={useProfile} /> : <details className="optional-costs"><summary>{ux.machineIncluded ? 'Energia e impressora incluídas — editar (opcional)' : 'Incluir energia e impressora (opcional)'}</summary><PrinterFields entries={realEntries} onProfile={useProfile} /></details>}{ux.intent === 'cost' && <details><summary>Incluir embalagem (opcional)</summary><PackagingFields /></details>}{ux.mode === 'advanced' ? <OptionalCosts /> : <details className="optional-costs"><summary>Mão de obra e outros custos (opcional)</summary><OptionalCosts /></details>}</section>}
             {ux.intent === 'sale' && show('sale') && <SaleStep tables={catalog.tables} onSaveShop={() => { void saveShop(); }} />}
             {show('result') && <ExperienceResult tables={catalog.tables} state={automatic.state} issues={issues} onFix={fixIssue} onConfirm={() => setStage('sale')} onResolve={resolvePending} onSell={() => update(beginSale(current))} onAdjustPrice={price => update(applyFinalPrice(current, price))} onSave={() => { void saveResult(); }} onRetry={automatic.runNow} saved={savedKey === resultKey} />}
             <StageActions ux={ux} onStage={setStage} />
