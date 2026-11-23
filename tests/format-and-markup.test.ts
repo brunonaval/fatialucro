@@ -46,9 +46,9 @@ describe('formatação decimal de campos e estrutura acessível sem navegador', 
   it('tokens de texto e estados preservam contraste WCAG AA nos dois temas', () => {
     const css = readFileSync(new URL('../src/ui/style.css', import.meta.url), 'utf8');
     const blocks = [css.match(/:root \{([\s\S]*?)\}/)![1]!, css.match(/:root\[data-theme="dark"\] \{([\s\S]*?)\}/)![1]!];
-    const luminance = (hex: string) => { const rgb = hex.match(/[0-9a-f]{2}/g)!.map(channel => { const n = parseInt(channel, 16) / 255; return n <= .04045 ? n / 12.92 : ((n + .055) / 1.055) ** 2.4; }); return rgb[0]! * .2126 + rgb[1]! * .7152 + rgb[2]! * .0722; };
+    const luminance = (hex: string) => { const rgb = hex.match(/[0-9a-f]{2}/gi)!.map(channel => { const n = parseInt(channel, 16) / 255; return n <= .04045 ? n / 12.92 : ((n + .055) / 1.055) ** 2.4; }); return rgb[0]! * .2126 + rgb[1]! * .7152 + rgb[2]! * .0722; };
     for (const block of blocks) {
-      const tokens = Object.fromEntries([...block.matchAll(/--([\w-]+):\s*(#[0-9a-f]{6})/g)].map(match => [match[1], match[2]!]));
+      const tokens = Object.fromEntries([...block.matchAll(/--([\w-]+):\s*(#[0-9a-f]{6})/gi)].map(match => [match[1], match[2]!]));
       for (const [foreground, background] of [['text', 'surface'], ['muted', 'surface'], ['accent', 'surface'], ['on-accent', 'accent'], ['error', 'error-bg'], ['warning-text', 'warning-bg'], ['success-text', 'success-bg']]) {
         const a = luminance(tokens[foreground!]!); const b = luminance(tokens[background!]!); expect((Math.max(a, b) + .05) / (Math.min(a, b) + .05)).toBeGreaterThanOrEqual(4.5);
       }
