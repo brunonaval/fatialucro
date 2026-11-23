@@ -10,7 +10,7 @@ describe('Atualizador assinado — versões do FatiaLucro', () => {
     const release = { version: '0.2.1', body: 'Melhorias de preço' } as Update;
     const check = vi.fn().mockResolvedValue(release);
     const found = await checkSignedUpdate(async () =>
-      ({ check }) as unknown as typeof import('@tauri-apps/plugin-updater')
+      ({ check })
     );
     expect(check).toHaveBeenCalledWith({ timeout: 20000 });
     expect(found?.version).toBe('0.2.1');
@@ -21,7 +21,7 @@ describe('Atualizador assinado — versões do FatiaLucro', () => {
   it('não instala nada quando não existe nova versão', async () => {
     const check = vi.fn().mockResolvedValue(null);
     const found = await checkSignedUpdate(async () =>
-      ({ check }) as unknown as typeof import('@tauri-apps/plugin-updater')
+      ({ check })
     );
     expect(found).toBeNull();
   });
