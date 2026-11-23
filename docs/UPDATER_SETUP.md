@@ -14,6 +14,19 @@ Depois da instalação inicial de transição para a **primeira release assinada
 
 O usuário não precisa baixar ZIPs nem abrir o GitHub para versões futuras. **Nenhum download ou instalação acontece automaticamente sem o clique do usuário.**
 
+## Atalho para Windows (recomendado)
+
+Foi criado o assistente local `scripts/configurar-atualizador.ps1`. Ele gera ou reutiliza suas chaves na pasta privada `%USERPROFILE%\.tauri`, verifica autenticação do GitHub CLI, cadastra a chave privada **diretamente como GitHub Actions Secret** e a chave pública como variável; não imprime o segredo no chat, não publica releases e não troca de branch.
+
+Pré-requisito: [GitHub CLI](https://cli.github.com/) instalado e autenticado (`gh auth login`). No PowerShell da cópia **atualizada** do projeto:
+
+```powershell
+cd C:\Projetos\FatiaLucro
+.\scripts\configurar-atualizador.ps1
+```
+
+O programa pedirá a senha da chave no próprio terminal. Não compartilhe a senha nem a chave privada. Se o PowerShell impedir a execução por política corporativa, **não desative as políticas do sistema**: use a configuração manual descrita abaixo. Guarde cópia offline da chave privada e da senha. Após este passo, não será necessário configurar novas chaves a cada versão.
+
 ## Uma única configuração que deve ser feita pelo proprietário
 
 No computador Windows com o código do projeto e `npm ci` já executado, abra PowerShell na pasta do projeto. Gere o par de chaves, com senha forte:
