@@ -42,7 +42,7 @@ export function guidedIssues(draft: CalculatorDraft): GuidedIssue[] {
           if (numericIssue(normalizeNumeric(item.purchase.amount, 'money'), 'money')
             || numericIssue(normalizeNumeric(item.purchase.netGrams, 'weight'), 'weight')
             || Number(item.purchase.netGrams.replace(',', '.')) <= 0)
-            add(item.id + '-name', 'costs', 'Perfil de ' + item.name, 'Confira a compra no perfil deste filamento.');
+            add(item.id + '-purchase', 'costs', 'Compra de ' + item.name, 'O preço ou o peso desta bobina está inválido. Use Corrigir custo desta bobina ou selecione outro filamento salvo.');
         } else check(item.id + '-kg', item.pricePerKg, 'costs', 'Preço por kg de ' + item.name, 'money', true);
       }
     } else {

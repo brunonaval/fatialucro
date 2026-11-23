@@ -84,7 +84,7 @@ export function App() {
     const id = focusTarget.current ?? (page === 'calculate' && ux.entry !== 'none' ? `${ux.stage}-step` : 'workspace-content'); focusTarget.current = null;
     if (id.startsWith('field:')) {
       const field = id.slice(6);
-      const input = [...document.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[name]')].find(node => node.getAttribute('name') === field);
+      const input = [...document.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('[name]')].find(node => node.getAttribute('name') === field);
       if (input) {
         for (let ancestor = input.parentElement; ancestor; ancestor = ancestor.parentElement)
           if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
@@ -112,7 +112,7 @@ export function App() {
   function fixIssue(issue: GuidedIssue) {
     focusTarget.current = 'field:' + issue.field;
     if (issue.stage === ux.stage || ux.mode === 'advanced') {
-      const input = [...document.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[name]')].find(node => node.getAttribute('name') === issue.field);
+      const input = [...document.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('[name]')].find(node => node.getAttribute('name') === issue.field);
       if (input) {
         for (let ancestor = input.parentElement; ancestor; ancestor = ancestor.parentElement)
           if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
@@ -227,9 +227,9 @@ export function App() {
             {show('print') && <PrintStep filaments={realEntries} />}
             {show('costs') && <section id="costs-step"><div className="section-heading"><span className="step-label">Custos</span><h2>Quanto custa fabricar esta peça?</h2><p>Para começar, informe somente o preço do filamento. Energia, máquina e trabalho são opcionais.</p></div><FilamentFields entries={realEntries} onProfile={useProfile} onSave={value => saveProfile(value, 'filament')} />{ux.machineIncluded ? <PrinterFields entries={realEntries} onProfile={useProfile} /> : <details className="optional-costs"><summary>Incluir energia e custo da impressora (opcional)</summary><PrinterFields entries={realEntries} onProfile={useProfile} /></details>}{ux.intent === 'cost' && <details><summary>Incluir embalagem (opcional)</summary><PackagingFields /></details>}<OptionalCosts /></section>}
             {ux.intent === 'sale' && show('sale') && <SaleStep tables={catalog.tables} onSaveShop={() => { void saveShop(); }} />}
-            {show('result') && <ExperienceResult tables={catalog.tables} state={automatic.state} issues={issues} onFix={fixIssue} onConfirm={() => setStage('sale')} onResolve={resolvePending} onSell={() => update(beginSale(current))} onAdjustPrice={price => update(applyFinalPrice(current, price))} onSave={() => { void saveResult(); }} saved={savedKey === resultKey} />}
+            {show('result') && <ExperienceResult tables={catalog.tables} state={automatic.state} issues={issues} onFix={fixIssue} onConfirm={() => setStage('sale')} onResolve={resolvePending} onSell={() => update(beginSale(current))} onAdjustPrice={price => update(applyFinalPrice(current, price))} onSave={() => { void saveResult(); }} onRetry={automatic.runNow} saved={savedKey === resultKey} />}
             <StageActions ux={ux} onStage={setStage} />
-          </form></div><FinancialSummary draft={current} state={automatic.state} issues={issues} onFix={fixIssue} onResolve={resolvePending} /></div>
+          </form></div><FinancialSummary draft={current} state={automatic.state} issues={issues} onFix={fixIssue} onResolve={resolvePending} onRetry={automatic.runNow} /></div>
           <p className="automatic-note">Atualizamos os cálculos automaticamente. Custos opcionais ficam recolhidos; caso falte algo, use Corrigir no resumo.</p>
         </>}
       </> : page === 'products' ? <ProductLibrary entries={entries} busy={busy} onNew={() => { void startNew(); }} onEdit={(entry, duplicate) => { void editRecord(entry, duplicate); }} onTrash={entry => mutate(() => repo().trash(entry.id), 'Registro movido para a lixeira. Você pode restaurá-lo em Meus produtos.')} onRestore={entry => mutate(() => repo().restore(entry.id), 'Registro restaurado com seus dados e regras originais.')} /> : <div className="settings-area">

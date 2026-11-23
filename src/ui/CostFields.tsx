@@ -9,6 +9,18 @@ import { Field, Input, NumericInput } from './Fields';
 import { useExperience } from './ExperienceContext';
 import { currency } from './ResultView';
 import { profileSignature, profileSource } from '../app/ux-v3';
+import type { PurchaseDraft } from '../app/experience-types';
+
+function purchaseDescription(purchase: PurchaseDraft): string {
+  try {
+    const amount = parseBrazilianMoney(purchase.amount);
+    const netGrams = numeric(purchase.netGrams, 'Peso líquido da bobina');
+    if (new D(netGrams).lte(0)) throw new Error('Peso inválido.');
+    return `Bobina: ${currency(amount)} / ${netGrams.replace('.', ',')} g. Origem: filamento salvo selecionado.`;
+  } catch {
+    return 'O cadastro desta bobina tem custo ou peso inválido. Escolha outro perfil ou informe o preço por kg.';
+  }
+}
 
 function filamentLabel(entry: SavedEntry) {
   try { const profile = withExperience(entry.draft); validateReusableProfile(profile, 'filament'); return `${entry.name} — ${profile.ux.filament.mode === 'spool' ? `${currency(profile.ux.filament.amount.replace(',', '.'))} / ${profile.ux.filament.netGrams} g` : `${currency(text(profile, 'filament').replace(',', '.'))}/kg`}`; }
@@ -62,10 +74,10 @@ export function FilamentFields({ entries, onProfile, onSave }: { entries: SavedE
         {saveFeedback && <p role="status" className="message">{saveFeedback}</p>}
       </div>}
     </> : <>
-      <p className="muted">Preencha o preço de cada material. Peso de suporte, purga e trocas deve estar no consumo informado, sem ser somado novamente.</p>
-      {draft.materials.map((item, index) => <div className="material-row" key={item.id}><label>Material<input name={`${item.id}-name`} value={item.name} onChange={event => update({ ...draft, materials: draft.materials.map((value, i) => i === index ? { ...value, name: event.target.value } : value) })} /></label><div className="fields">
+      <p className="muted">Cada linha corresponde a um filamento efetivamente consumido. Até dois PLA podem pertencer a bobinas diferentes: escolha o preço correto para cada uma. Peso de suporte, purga e trocas deve estar no consumo informado, sem ser somado novamente.</p>
+      {draft.materials.map((item, index) => <div className="material-row" key={item.id}><h4>Filamento {index + 1}: {item.name} · {item.grams || '?'} g</h4><label>Nome deste material<input name={`${item.id}-name`} value={item.name} onChange={event => update({ ...draft, materials: draft.materials.map((value, i) => i === index ? { ...value, name: event.target.value } : value) })} /></label><div className="fields">
         <NumericInput name={`${item.id}-g`} label="Peso total utilizado" kind="weight" value={item.grams} onValue={grams => update({ ...draft, materials: draft.materials.map((value, i) => i === index ? { ...value, grams } : value) })} />
-        {!item.purchase ? <NumericInput name={`${item.id}-kg`} label="Preço por kg" kind="money" value={item.pricePerKg} onValue={pricePerKg => update({ ...draft, materials: draft.materials.map((value, i) => i === index ? { ...value, pricePerKg } : value) })} /> : <p className="rate-preview">Bobina: {currency(item.purchase.amount.replace(',', '.'))} / {item.purchase.netGrams} g. Origem: perfil de filamento selecionado para esta linha.</p>}
+        {!item.purchase ? <NumericInput name={`${item.id}-kg`} label="Preço por kg" kind="money" value={item.pricePerKg} onValue={pricePerKg => update({ ...draft, materials: draft.materials.map((value, i) => i === index ? { ...value, pricePerKg } : value) })} /> : <div className="rate-preview"><p>{purchaseDescription(item.purchase)}</p><button type="button" name={`${item.id}-purchase`} className="secondary" onClick={() => update({ ...draft, materials: draft.materials.map((value, i) => i === index ? { id: value.id, name: value.name, grams: value.grams, pricePerKg: value.pricePerKg } : value) })}>Corrigir custo desta bobina — informar outro preço por kg</button><p className="field-hint">A alteração vale somente para este cálculo, sem modificar o filamento salvo.</p></div>}
         {!!profiles.length && <label>Aplicar filamento salvo<select value="" onChange={event => { const profile = profiles.find(value => value.id === event.target.value); if (profile) chooseProfile(profile, index); }}><option value="">Selecionar perfil…</option>{profiles.map(profile => <option key={profile.id} value={profile.id}>{filamentLabel(profile)}</option>)}</select></label>}
       </div>{removing === item.id ? <div className="confirm-inline"><p>Remover este material também remove seu custo do cálculo.</p><button type="button" onClick={() => { update({ ...draft, materials: draft.materials.filter(value => value.id !== item.id) }); setRemoving(null); }}>Confirmar remoção</button><button type="button" className="secondary" onClick={() => setRemoving(null)}>Manter material</button></div> : <button type="button" className="text-button" onClick={() => setRemoving(item.id)}>Remover material…</button>}</div>)}
     </>}

@@ -39,15 +39,16 @@ export function FinancialMetrics({ output, advanced = false }: { output: Experie
       {advanced && <div className="metric-row"><dt>Markup sobre os custos</dt><dd>{ratio(result.markup)}</dd></div>}
     </dl></>;
 }
-export function FinancialSummary({ draft, state, onResolve, issues = [], onFix }: { draft: CalculatorDraft; state: FinancialState; onResolve?: (target: string) => void; issues?: readonly GuidedIssue[]; onFix?: (issue: GuidedIssue) => void }) {
+export function FinancialSummary({ draft, state, onResolve, issues = [], onFix, onRetry }: { draft: CalculatorDraft; state: FinancialState; onResolve?: (target: string) => void; issues?: readonly GuidedIssue[]; onFix?: (issue: GuidedIssue) => void; onRetry?: () => void }) {
   const output = state.phase === 'ready' ? state.output : undefined;
   const sale = output?.kind === 'sale' ? output : null; const partial = sale?.data.result.status === 'partial';
   const status = sale ? partial ? 'Parcial' : sale.data.result.confidence === 'provisional' ? 'Simulação provisória' : 'Completo' : output?.kind === 'blocked-search' ? 'Busca não concluída' : 'Custos selecionados';
   const exclusions = costExclusions(draft);
   return <aside className="summary-column" aria-label="Meu resumo" tabIndex={0}><section className="financial-summary" aria-busy={state.phase === 'processing'}><h2>Meu resumo</h2>
-    <p role="status" className="summary-status">{state.phase === 'waiting' || state.phase === 'processing' ? 'Atualizando os dados informados…' : state.phase === 'invalid' ? state.error : status}</p>
+    <p role="status" className="summary-status">{state.phase === 'waiting' || state.phase === 'processing' ? 'Atualizando os dados informados…' : state.phase === 'invalid' ? state.errorKind === 'technical' ? 'Falha ao processar. Seus dados foram preservados.' : issues.length ? 'Confira os campos indicados abaixo.' : state.error : status}</p>
     {sale ? <><span className={`status-badge ${partial ? 'warning' : ''}`}>{status}</span><FinancialMetrics output={sale} advanced={draft.ux?.mode === 'advanced'} />{partial && <PendingQuestions pending={sale.data.result.pending} {...(onResolve ? { onResolve } : {})} />}</> : state.preview ? <CostMetrics preview={state.preview} /> : <p>Informe sua impressão e os custos escolhidos. Valores antigos ficam ocultos durante a edição.</p>}
-    {state.phase === 'invalid' && <GuidedIssues issues={issues} {...(onFix ? { onFix } : {})} />}
+    {state.phase === 'invalid' && state.errorKind === 'technical' && <div className="technical-recovery" role="alert"><strong>Não foi possível executar o cálculo no dispositivo.</strong><p>Os campos continuam salvos no formulário. Tente novamente; se persistir, confira a instalação.</p>{onRetry && <button type="button" className="secondary" onClick={onRetry}>Tentar calcular novamente</button>}<details><summary>Detalhes do processamento</summary><p>{state.error}</p></details></div>}
+    {state.phase === 'invalid' && state.errorKind !== 'technical' && <GuidedIssues issues={issues} {...(onFix ? { onFix } : {})} />}
     <details><summary>O que não foi considerado?</summary>{exclusions.length ? <ul>{exclusions.map(item => <li key={item}>{item}</li>)}</ul> : <p>Os custos selecionados estão incluídos; despesas e tributos não informados não são estimados.</p>}{draft.ux?.labor === 'zero' && <p>Mão de obra definida conscientemente como R$ 0,00.</p>}</details>
     <p className="summary-footnote">Estimativa dos custos selecionados. Nenhum repasse está confirmado.</p>
   </section></aside>;
