@@ -215,7 +215,7 @@ input, select, button { scroll-margin-block: 28px; }
 .quick-goals label { display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--surface); cursor: pointer; }
 .quick-goals label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
 .quick-goals input[type="radio"] { width: 18px; min-height: 18px; height: 18px; accent-color: var(--accent); flex-shrink: 0; }
-.field-necessity { font-size: .75rem; font-weight: 500; color: var(--muted); }
+.field-necessity { font-size: .85rem; font-weight: 500; color: var(--muted); }
 .guided-issues { border: 1px solid var(--warning-border); border-radius: var(--radius-small); background: var(--warning-bg); color: var(--warning-text); padding: 14px; margin: 16px 0; }
 .guided-issues h3 { margin: 0 0 8px; }
 .guided-issues ul { margin: 8px 0; padding-left: 18px; }

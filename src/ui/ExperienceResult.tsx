@@ -15,7 +15,7 @@ import type { ShopeeTable } from '../marketplaces/catalogs/types';
 
 export function ExperienceResult({ state, frozen, onConfirm, onResolve, onSell, onSave, onAdjustPrice, saved = false, tables = [], issues = [], onFix }: { state?: FinancialState; frozen?: ExperienceOutput; onConfirm?: () => void; onResolve?: (target: string) => void; onSell?: () => void; onSave?: () => void; onAdjustPrice?: (price: string) => void; saved?: boolean; tables?: readonly ShopeeTable[]; issues?: readonly GuidedIssue[]; onFix?: (issue: GuidedIssue) => void }) {
   const { draft, ux } = useExperience(); const output = frozen ?? (state?.phase === 'ready' ? state.output : undefined);
-  if (!output) return <section id="result-step" className="result-empty" aria-live="polite"><span className="step-label">Resultado</span><h2>{state?.phase === 'processing' || state?.phase === 'waiting' ? 'Calculando com seus dados…' : issues.length ? 'Vamos resolver os campos que faltam' : 'Ainda não foi possível calcular'}</h2>
+  if (!output) return <section id="result-step" className="result-empty" aria-live="polite"><span className="step-label">Resultado</span><h2>{state?.phase === 'processing' || state?.phase === 'waiting' ? 'Seu resultado está sendo atualizado' : issues.length ? 'Vamos resolver os campos que faltam' : 'Ainda não foi possível calcular'}</h2>
     {state?.preview && <CostMetrics preview={state.preview} />}
     <GuidedIssues issues={issues} {...(onFix ? { onFix } : {})} />
     {!issues.length && <p>{state?.phase === 'invalid' ? state.error : 'Importe ou informe os dados da impressão e o preço do material.'}</p>}

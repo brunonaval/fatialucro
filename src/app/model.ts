@@ -140,7 +140,7 @@ export function buildScenario(draft: CalculatorDraft, tables: readonly ShopeeTab
 }
 
 export function applyPlate(draft: CalculatorDraft, plate: ImportedPlate): CalculatorDraft {
-  const single = plate.materials.length === 1;
+  const single = plate.materials.length === 1 && plate.grams !== null && plate.materials[0]!.grams !== null;
   return { fields: { ...draft.fields, basis: 'batch', grams: plate.grams ?? '',
     hours: plate.seconds === null ? '' : new D(plate.seconds).div(3600).toDecimalPlaces(12).toFixed(),
     pieces: plate.pieces === null ? '' : String(plate.pieces), filament: '',
