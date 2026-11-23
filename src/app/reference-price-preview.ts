@@ -1,5 +1,5 @@
 import { calculateWorkspace } from './calculate';
-import { text } from './model';
+import { saleExtraSelected, text } from './model';
 import type { CalculatorDraft } from './model';
 import { selectTable } from '../marketplaces/catalogs/select';
 import type { ShopeeTable } from '../marketplaces/catalogs/types';
@@ -41,6 +41,8 @@ export function referencePricePreview(draft: CalculatorDraft, tables: readonly S
   delete baseline.ux!.programDeclaration;
   const hypotheticalConditions: string[] = [];
   const excludedActivePrograms: string[] = [];
+  const referenceDiscountGross = shopee && saleExtraSelected(draft, 'discount') && Number(text(draft, 'discount').replace(',', '.')) > 0 && fields.manualBasic !== true;
+  if (referenceDiscountGross) hypotheticalConditions.push('Desconto do vendedor: nesta referência, a faixa e a comissão usam o preço bruto; o cupom é deduzido da receita. A regra real de incidência não foi comprovada.');
   if (draft.ux.packagingDecision === 'unknown') {
     baseline.ux!.packagingDecision = 'exclude';
     baseline.ux!.packagingIncluded = false;
@@ -101,7 +103,7 @@ export function referencePricePreview(draft: CalculatorDraft, tables: readonly S
         illustration = acceptHypotheses(illustration, table.id, review);
       }
       illustration.fields.price = text(illustration, 'maxPrice');
-      const calculation = calculateWorkspace(illustration, tables);
+      const calculation = calculateWorkspace(illustration, tables, referenceDiscountGross);
       const solution = calculation.solution;
       minimumStart = calculation.searchRange?.min ?? null;
       maximumEnd = calculation.searchRange?.max ?? null;
