@@ -61,55 +61,19 @@ else {
 }
 
 $Public = (Get-Content -LiteralPath $PublicKey -Raw -Encoding UTF8).Trim()
-# O Tauri CLI grava a chave publica como Base64 do documento minisign.
-# Preserve esse Base64 original: e o formato exigido pelo updater no build.
+# O Tauri CLI grava a chave publica como Base64 de um documento minisign.
+# Validamos o texto decodificado, enviando o Base64 original ao GitHub.
 try {
     $PublicDecoded = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Public))
 }
 catch {
-    throw 'Chave publica invalida: o arquivo .pub nao contem o Base64 esperado pelo Tauri. Nao apague suas chaves.'
+    throw 'Formato Base64 invalido para a chave publica. Nao apague suas chaves.'
 }
 $PublicLines = $PublicDecoded -split '\r?\n'
 if ($PublicLines.Count -lt 2 -or
     -not $PublicLines[0].StartsWith('untrusted comment: minisign public key') -or
-    $PublicLines[1] -notmatch '^RW[A-Za-z0-9+/=]{40,}
-
-Write-Host 'Enviando a chave privada diretamente ao GitHub Secret, pelo gh autenticado.'
-$Private = (Get-Content -LiteralPath $PrivateKey -Raw -Encoding UTF8).Trim()
-$Private | & gh secret set TAURI_SIGNING_PRIVATE_KEY --repo $Repository
-Confirmar-Saida 'Cadastro de TAURI_SIGNING_PRIVATE_KEY'
-Remove-Variable Private -ErrorAction SilentlyContinue
-
-Write-Host 'Informe abaixo a MESMA senha escolhida ao gerar a chave (nao aparece na tela).'
-$SecurePassword = Read-Host 'Senha da assinatura' -AsSecureString
-$Bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecurePassword)
-try {
-    $PlainPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($Bstr)
-    # O segredo da senha e opcional se o par de chaves nao tiver senha.
-    if ($PlainPassword.Length -gt 0) {
-        $PlainPassword | & gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD --repo $Repository
-        Confirmar-Saida 'Cadastro de TAURI_SIGNING_PRIVATE_KEY_PASSWORD'
-    }
-    else {
-        Write-Host 'Senha vazia: o segredo opcional nao foi cadastrado.'
-    }
-}
-finally {
-    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($Bstr)
-    Remove-Variable PlainPassword -ErrorAction SilentlyContinue
-}
-
-$Public | & gh variable set TAURI_UPDATER_PUBLIC_KEY --repo $Repository
-Confirmar-Saida 'Cadastro da chave publica'
-Remove-Variable Public -ErrorAction SilentlyContinue
-
-Write-Host ''
-Write-Host 'Configuracao concluida. Nenhuma release foi criada ou publicada.'
-Write-Host 'A chave privada permanece somente no PC e no cofre de Secrets do GitHub.'
-Write-Host "Guarde um backup offline do arquivo $PrivateKey e da senha."
-Write-Host 'Avise no chat apenas que os nomes das tres configuracoes foram cadastrados.'
-) {
-    throw 'Chave publica invalida: o conteudo decodificado nao e uma chave publica minisign. Nao apague suas chaves.'
+    $PublicLines[1] -notmatch '^RW[A-Za-z0-9+/=]{40,}$') {
+    throw 'Chave publica minisign invalida. Nao apague suas chaves.'
 }
 Remove-Variable PublicDecoded, PublicLines -ErrorAction SilentlyContinue
 
