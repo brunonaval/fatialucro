@@ -62,7 +62,7 @@ describe('Prévia orientativa sem alterar declarações da Shopee', () => {
     const html = view(d, <ExperienceResult frozen={result} />);
     expect(html).toContain('Preço orientativo');
     expect(html).toContain('R$ 22,24 a R$ 23,05');
-    expect(html).toContain('não é preço garantido');
+    expect(html).toContain('Não é preço garantido');
     expect(html).not.toContain('headline-price');
     const summary = view(d, <FinancialSummary draft={d} state={{ signature: 'test', phase: 'ready', output: result }} />);
     expect(summary).toContain('Preço orientativo da Shopee');
@@ -78,7 +78,7 @@ describe('Prévia orientativa sem alterar declarações da Shopee', () => {
     const d = capturedScenario(); d.fields.ads = 'unknown';
     const a = calculateExperience(d);
     if (a.kind !== 'blocked-search') throw new Error('Programa desconhecido não pode concluir o cenário.');
-    expect(a.referencePreview?.hypotheticalConditions.join(' ')).toContain('ads:');
+    expect(a.referencePreview?.hypotheticalConditions.join(' ')).toContain('Ads Fácil:');
     expect(d.fields.ads).toBe('unknown');
     d.fields.ads = 'inactive'; d.ux!.shipping = 'unknown';
     const b = calculateExperience(d);
@@ -90,6 +90,27 @@ describe('Prévia orientativa sem alterar declarações da Shopee', () => {
     const v = calculateExperience(d);
     if (v.kind !== 'blocked-search') throw new Error('O volume desconhecido não pode determinar lucro.');
     expect(v.referencePreview?.hypotheticalConditions.join(' ')).toContain('Volume de pedidos desconhecido');
+  });
+  it('programas ativos com cobranças indeterminadas recebem preço-base parcial e alerta explícito', () => {
+    const d = capturedScenario();
+    const original = structuredClone(d);
+    d.fields.returns = 'billable';
+    for (const field of ['highlight', 'ads', 'affiliates', 'advance']) d.fields[field] = 'active';
+    const before = structuredClone(d);
+    const result = calculateExperience(d, bundledTables);
+    expect(result.kind).toBe('blocked-search');
+    if (result.kind !== 'blocked-search') return;
+    expect(result.data.solution?.status).toBe('partial');
+    expect(result.referencePreview?.lower).toBeTruthy();
+    expect(result.referencePreview?.excludedActivePrograms).toEqual([
+      'Campanha de Destaque', 'Ads Fácil', 'Afiliados', 'Shopee Acelera',
+    ]);
+    const html = view(d, <ExperienceResult frozen={result} />);
+    expect(html).toContain('Preço-base parcial');
+    expect(html).toContain('NÃO use esse preço-base como preço final');
+    expect(html).toContain('valores dessas cobranças não estão determinados');
+    expect(d).toEqual(before);
+    expect(original.fields.highlight).toBe('inactive');
   });
   it('se o cliente definiu manualmente uma faixa abaixo de 12, não afirma preço mínimo seguro', () => {
     const d = capturedScenario(); d.fields.minPrice = '10';
