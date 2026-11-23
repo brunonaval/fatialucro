@@ -103,7 +103,7 @@ describe('Prévia orientativa sem alterar declarações da Shopee', () => {
     expect(result.data.solution?.status).toBe('partial');
     expect(result.referencePreview?.lower).toBeTruthy();
     expect(result.referencePreview?.excludedActivePrograms).toEqual([
-      'Campanha de Destaque', 'Ads Fácil', 'Afiliados', 'Shopee Acelera',
+      'Ads Fácil', 'Afiliados', 'Shopee Acelera',
     ]);
     const html = view(d, <ExperienceResult frozen={result} />);
     expect(html).toContain('Preço-base parcial');
