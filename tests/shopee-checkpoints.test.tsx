@@ -53,9 +53,9 @@ describe('UX V4 — conferência de condições da Shopee sem repetir todas as p
     let draft = declarePrograms(readyCpf(), 'none');
     draft = changeScenarioDate(draft, '2026-11-23');
     const checks = shopeeCheckpoints(draft, bundledTables);
-    expect(checks.find(check => check.id === 'shop-programs')?.state).toBe('pending');
-    expect(checks.find(check => check.id === 'shop-volume')?.state).toBe('pending');
-    expect(checks.find(check => check.id === 'shop-shipping')?.state).toBe('pending');
+    expect(checks.find(check => check.id === 'shop-programs')?.state).toBe('review');
+    expect(checks.find(check => check.id === 'shop-volume')?.state).toBe('review');
+    expect(checks.find(check => check.id === 'shop-shipping')?.state).toBe('review');
   });
 
   it('um programa ativo não é confundido com tarifa conhecida ou com adesão desconhecida', () => {
@@ -78,7 +78,7 @@ describe('UX V4 — conferência de condições da Shopee sem repetir todas as p
     draft.fields.shipping = '4.50';
     expect(shopeeCheckpoints(draft, bundledTables).find(check => check.id === 'shop-shipping')?.state).toBe('answered');
     draft.ux!.shipping = 'unknown';
-    expect(shopeeCheckpoints(draft, bundledTables).find(check => check.id === 'shop-shipping')?.state).toBe('pending');
+    expect(shopeeCheckpoints(draft, bundledTables).find(check => check.id === 'shop-shipping')?.state).toBe('review');
   });
 
   it('contagem exata informada é mostrada como usada, não como Não sei', () => {
