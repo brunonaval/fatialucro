@@ -1,6 +1,6 @@
 [package]
 name = "fatialucro"
-version = "0.1.0"
+version = "0.1.1"
 description = "Calculadora offline de precificacao para impressao 3D"
 authors = ["FatiaLucro contributors"]
 edition = "2021"

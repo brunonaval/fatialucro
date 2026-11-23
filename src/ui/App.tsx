@@ -30,6 +30,7 @@ import { useAutomaticCalculation } from './useAutomaticCalculation';
 import { savedLabels } from './ProfileSelect';
 import { FinancialSummary } from './FinancialSummary';
 import { StoreSettings } from './StoreSettings';
+import { UpdatePanel } from './UpdatePanel';
 import { CalculationNavigation, StageActions } from './CalculationNavigation';
 import { applyFinalPrice, beginSale, changeScenarioDate } from '../app/ux-v3';
 import { guidedIssues } from './guided-validation';
@@ -246,6 +247,7 @@ export function App() {
         </>}
       </> : page === 'products' ? <ProductLibrary entries={entries} busy={busy} onNew={() => { void startNew(); }} onEdit={(entry, duplicate) => { void editRecord(entry, duplicate); }} onTrash={entry => mutate(() => repo().trash(entry.id), 'Registro movido para a lixeira. Você pode restaurá-lo em Meus produtos.')} onRestore={entry => mutate(() => repo().restore(entry.id), 'Registro restaurado com seus dados e regras originais.')} /> : <div className="settings-area">
         <section><h2>Aparência e modo de uso</h2><label>Aparência<select value={theme} onChange={event => chooseTheme(event.target.value)}><option value="system">Sistema</option><option value="light">Claro</option><option value="dark">Escuro</option></select></label><button type="button" className="secondary" aria-pressed={ux.mode === 'advanced'} onClick={chooseMode}>{ux.mode === 'simple' ? 'Abrir modo avançado' : 'Voltar ao modo simples'}</button><p>Os dois modos usam os mesmos dados e cálculos. O simples mostra uma decisão por vez.</p></section>
+        <UpdatePanel />
         <StoreSettings saved={realEntries.find(entry => entry.id === 'store-shopee')} tables={catalog.tables} onSave={saveStoreDraft} />
         <section><span className="step-label">Configurações</span><h2>Organize sua oficina no seu ritmo</h2><p>Esses cadastros são reutilizáveis. Nenhuma etapa é obrigatória para começar um cálculo.</p><button type="button" onClick={() => setShowWorkshop(!showWorkshop)}>{showWorkshop ? 'Recolher assistente' : workshop ? 'Retomar configuração da oficina' : 'Configurar minha oficina'}</button></section>
         {showWorkshop && <WorkshopWizard initial={workshop} tables={catalog.tables} onSave={saveWorkshop} onApply={applyWorkshop} onProfile={saveProfile} />}

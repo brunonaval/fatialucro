@@ -23,7 +23,31 @@ export function ExperienceResult({ state, frozen, onConfirm, onResolve, onSell, 
       {issues.length > 0 && state?.phase === 'invalid' && <details><summary>Detalhe técnico da validação</summary><p>{state.error}</p></details>}
     </>}
     <p>Valores antigos não são apresentados como atuais. O custo conhecido continua visível, quando disponível.</p></section>;
-  if (output.kind === 'blocked-search') return <section id="result-step"><span className="status-badge warning">Busca não concluída</span><h2>Ainda não há um preço mínimo calculável</h2><p>Uma condição desconhecida interrompe a busca, ou a meta não foi alcançada no intervalo informado. Não mostramos o preço de um candidato arbitrário como sugestão.</p>{output.data.solution?.status === 'partial' && <PendingQuestions pending={output.data.solution.pending} {...(onResolve ? { onResolve } : {})} />}{onConfirm && <button type="button" onClick={onConfirm}>Conferir venda e condições</button>}</section>;
+  if (output.kind === 'blocked-search') {
+    const estimate = output.referencePreview;
+    const conditional = estimate?.returnsUnconfirmed ?? false;
+    const label = estimate && estimate.lower === estimate.upper
+      ? currency(estimate.lower)
+      : estimate ? `${currency(estimate.lower)} a ${currency(estimate.upper)}` : null;
+    const pending = output.data.solution?.status === 'partial' ? output.data.solution.pending : [];
+    return <section id="result-step" className="result-blocked">
+      <span className="status-badge warning">{estimate ? 'Estimativa não confirmada' : 'Busca não concluída'}</span>
+      {estimate ? <>
+        <h2>Por quanto posso vender?</h2>
+        <div className="reference-price-preview" aria-label="Preço estimado de referência">
+          <span>Preço orientativo com tarifas documentadas</span>
+          <strong>{label}</strong>
+          <p>{conditional ? 'Faixa conforme haja ou não cobrança da Devolução Fácil.' : 'Simulação ilustrativa com as condições informadas.'} Considera premissas ainda não verificadas e não é preço garantido nem lucro confirmado.</p>
+        </div>
+        <p className="field-hint">Busca desde {currency(estimate.searchStart)}. O valor de anúncio pode mudar após conferir cobranças reais da Shopee e despesas não informadas.</p>
+      </> : <>
+        <h2>Não foi possível estimar um preço confiável</h2>
+        <p>Falta saber alguma cobrança que pode alterar o preço. Você pode conferir as condições sem preencher a tela inteira.</p>
+      </>}
+      {pending.length > 0 && <details className="pending-review"><summary>{estimate ? 'O que falta conferir para o lucro ficar determinado?' : 'Ver informações pendentes'} ({pending.length})</summary><PendingQuestions pending={pending} {...(onResolve ? { onResolve } : {})} /></details>}
+      {onConfirm && <button type="button" className="secondary" onClick={onConfirm}>Conferir condições da Shopee</button>}
+    </section>;
+  }
   const demo = output.draft.ux?.entry === 'example'; const sale = output.kind === 'sale' ? output.data : null;
   const partial = sale?.result.status === 'partial'; const status = sale ? partial ? 'Parcial' : sale.result.confidence === 'provisional' ? 'Simulação provisória' : 'Completo' : 'Custos selecionados';
   const preview = output.kind === 'cost' ? calculateCostPreview(output.draft) : null;

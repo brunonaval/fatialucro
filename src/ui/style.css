@@ -289,3 +289,15 @@ input, select, button { scroll-margin-block: 28px; }
 @media (max-width: 700px) {
   .shop-conditions, .optional-sale-settings, .profile-shortcut { padding: var(--space-2); }
 }
+
+/* A reference price is useful before Shopee's documentary assumptions are signed off. */
+.reference-price-preview { border: 1px solid var(--warning-border); border-left: 4px solid var(--warning-border); background: var(--warning-bg); border-radius: var(--radius-small); padding: var(--space-4); margin: var(--space-3) 0; }
+.reference-price-preview > span { display: block; color: var(--text); font-weight: 650; }
+.reference-price-preview > strong { display: block; color: var(--text); font-size: clamp(1.55rem, 3vw, 2.1rem); font-variant-numeric: tabular-nums; margin: var(--space-2) 0; }
+.reference-price-preview > p { color: var(--text); margin: 0; }
+.reference-summary { border-top: 1px solid var(--border); padding-top: var(--space-3); margin-top: var(--space-3); }
+.reference-summary > p { font-size: 1.4rem; font-weight: 750; margin: var(--space-2) 0; font-variant-numeric: tabular-nums; }
+.reference-summary > small { color: var(--muted); }
+.pending-review { margin: var(--space-4) 0; }
+.pending-review > summary { font-weight: 650; cursor: pointer; }
+.result-blocked > button { margin-top: var(--space-3); }

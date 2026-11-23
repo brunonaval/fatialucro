@@ -11,6 +11,8 @@ import type { ShopeeTable } from '../marketplaces/catalogs/types';
 import type { ImportedPlate, PrintImport } from '../importers';
 import { applyPlate, restoreProfile } from './model';
 import { profileSignature } from './ux-v3';
+import { referencePricePreview } from './reference-price-preview';
+import type { ReferencePricePreview } from './reference-price-preview';
 
 export const initialExperience = (): ExperienceState => ({ version: 2, entry: 'none', intent: 'cost', mode: 'simple', stage: 'print', filament: { mode: 'spool', amount: '', netGrams: '' }, packaging: { mode: 'unit', amount: '', units: '' }, machineIncluded: true, wearIncluded: false, labor: 'excluded', packagingIncluded: false, extrasIncluded: false, saleUnit: 'piece', partsPerKit: '', discountIncluded: false, otherCostsIncluded: false, directShippingIncluded: false, shipping: 'unknown', volume: { answer: 'unknown', threshold: null, date: '' } });
 export function newCalculationDraft(now = new Date()): CalculatorDraft {
@@ -72,7 +74,7 @@ export function calculateCostSnapshot(input: CostSnapshot) {
   const manufacturing = calculateManufacturing(input.manufacturing, input.quantity);
   const packaging = calculatePackaging(input); return { manufacturing, packaging, total: new D(manufacturing.total).plus(packaging).toFixed(2) };
 }
-export type ExperienceOutput = { kind: 'cost'; draft: CalculatorDraft; input: CostSnapshot; cost: ReturnType<typeof calculateCostSnapshot> } | { kind: 'sale' | 'blocked-search'; draft: CalculatorDraft; data: CalculationOutput };
+export type ExperienceOutput = { kind: 'cost'; draft: CalculatorDraft; input: CostSnapshot; cost: ReturnType<typeof calculateCostSnapshot> } | { kind: 'sale' | 'blocked-search'; draft: CalculatorDraft; data: CalculationOutput; referencePreview?: ReferencePricePreview };
 export function calculateExperience(draft: CalculatorDraft, tables: readonly ShopeeTable[] = bundledTables): ExperienceOutput {
   validateDraft(draft); const normalized = withExperience(structuredClone(draft));
   if (normalized.ux.entry === 'none') throw new Error('Importe uma impressão ou escolha o preenchimento manual.');
@@ -83,7 +85,10 @@ export function calculateExperience(draft: CalculatorDraft, tables: readonly Sho
   const searching = ['profit', 'margin', 'equilibrium'].includes(text(normalized, 'calculation'));
   const prepared = searching ? { ...normalized, fields: { ...normalized.fields, price: text(normalized, 'maxPrice') } } : normalized;
   const data = calculateWorkspace(prepared, tables);
-  if (searching && data.solution?.status !== 'found') return { kind: 'blocked-search', draft: normalized, data };
+  if (searching && data.solution?.status !== 'found') {
+    const illustration = referencePricePreview(normalized, tables);
+    return { kind: 'blocked-search', draft: normalized, data, ...(illustration ? { referencePreview: illustration } : {}) };
+  }
   if (data.solution?.status === 'found') {
     const unitPrice = data.solution.unitPrice;
     const updated = { ...normalized, fields: { ...normalized.fields, price: unitPrice } };
