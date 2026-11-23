@@ -31,12 +31,15 @@ import { FinancialSummary } from './FinancialSummary';
 import { StoreSettings } from './StoreSettings';
 import { CalculationNavigation, StageActions } from './CalculationNavigation';
 import { applyFinalPrice, beginSale, changeScenarioDate } from '../app/ux-v3';
+import { guidedIssues } from './guided-validation';
+import type { GuidedIssue } from './guided-validation';
 import './style.css';
 
 type Page = 'calculate' | 'products' | 'settings';
 
 export function App() {
   const [draft, setDraft] = useState(() => newCalculationDraft()); const current = withExperience(draft); const ux = current.ux;
+  const [startGoal, setStartGoal] = useState<'profit' | 'cost' | 'sale'>('profit');
   const [page, setPage] = useState<Page>('calculate'); const [ready, setReady] = useState(false); const [entries, setEntries] = useState<SavedEntry[]>([]);
   const [theme, setTheme] = useState<Theme>('system'); const [notice, setNotice] = useState(''); const [busy, setBusy] = useState(false);
   const [recovery, setRecovery] = useState<CalculatorDraft | null>(null); const [draftStatus, setDraftStatus] = useState(''); const [editing, setEditing] = useState<EditingContext>({}); const [savedKey, setSavedKey] = useState('');
@@ -47,6 +50,7 @@ export function App() {
   const focusTarget = useRef<string | null>(null);
   const realEntries = entries.filter(entry => !entry.deletedAt); const example = ux.entry === 'example';
   const resultKey = `${calculationSignature(current)}|${text(current, 'productName')}`;
+  const issues = guidedIssues(current);
 
   useEffect(() => {
     if (!globalThis.indexedDB) { setNotice('Armazenamento local indisponível. Você pode calcular, mas dados não serão salvos nesta sessão.'); setReady(true); return; }
@@ -77,6 +81,15 @@ export function App() {
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
   useEffect(() => {
     const id = focusTarget.current ?? (page === 'calculate' && ux.entry !== 'none' ? `${ux.stage}-step` : 'workspace-content'); focusTarget.current = null;
+    if (id.startsWith('field:')) {
+      const field = id.slice(6);
+      const input = [...document.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[name]')].find(node => node.getAttribute('name') === field);
+      if (input) {
+        for (let ancestor = input.parentElement; ancestor; ancestor = ancestor.parentElement)
+          if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
+        input.focus({ preventScroll: false }); input.scrollIntoView({ block: 'center' }); return;
+      }
+    }
     const node = document.getElementById(id); if (node) { node.setAttribute('tabindex', '-1'); node.focus({ preventScroll: true }); }
   }, [page, ux.stage, ux.entry]);
   useEffect(() => {
@@ -89,6 +102,23 @@ export function App() {
   function update(next: CalculatorDraft) { setDraft(withExperience(next)); }
   function setField(name: string, value: string | boolean) { if (current.fields[name] !== value) update(name === 'date' ? changeScenarioDate(current, String(value)) : { ...current, fields: { ...current.fields, [name]: value } }); }
   function setStage(stage: typeof ux.stage) { update({ ...current, ux: { ...ux, stage } }); }
+  function startWithGoal(next: CalculatorDraft) {
+    const selected = withExperience(next);
+    update({ ...selected, fields: { ...selected.fields, calculation: startGoal === 'profit' ? 'profit' : 'direct',
+      ...(startGoal !== 'cost' ? { quantity: text(selected, 'quantity') || '1' } : {}) },
+      ux: { ...selected.ux, intent: startGoal === 'cost' ? 'cost' : 'sale', stage: 'print' } });
+  }
+  function fixIssue(issue: GuidedIssue) {
+    focusTarget.current = 'field:' + issue.field;
+    if (issue.stage === ux.stage) {
+      const input = [...document.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[name]')].find(node => node.getAttribute('name') === issue.field);
+      if (input) {
+        for (let ancestor = input.parentElement; ancestor; ancestor = ancestor.parentElement)
+          if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
+        input.focus(); input.scrollIntoView({ block: 'center' }); focusTarget.current = null;
+      }
+    } else setStage(issue.stage);
+  }
   function repo() { if (!repository.current) throw new Error('Armazenamento local indisponível. Nada foi salvo.'); return repository.current; }
   async function refresh() { setEntries(await repo().list(true)); }
   async function mutate(action: () => Promise<void>, success: string): Promise<boolean> {
@@ -101,7 +131,7 @@ export function App() {
     try { await repository.current.saveSetting('draft-v2', value); setRecovery(value); return true; } catch { setNotice('Não foi possível preservar seu rascunho. O cálculo atual foi mantido.'); return false; }
   }
   async function startNew() {
-    if (!await preserveDraft()) return;
+    if (!await preserveDraft()) return; setStartGoal('profit');
     const fresh = workshopDefaults(newCalculationDraft(), realEntries); update({ ...fresh, ux: { ...withExperience(fresh).ux, mode: ux.mode } }); setEditing({}); setSavedKey(''); setPage('calculate'); setNotice('');
   }
   async function exploreExample() { if (!await preserveDraft()) return; update(exampleDraft()); setEditing({}); setSavedKey(''); setPage('calculate'); setNotice('Exemplo fictício isolado. Nenhum custo da sua oficina foi substituído.'); }
@@ -170,9 +200,14 @@ export function App() {
     <div id="workspace-content" tabIndex={-1}>
       {notice && <p className="message" role="status">{notice}</p>}{!ready && <p className="empty-state" role="status">Carregando seus dados locais…</p>}
       {page === 'calculate' ? <>
-        {ux.entry === 'none' ? <section className="welcome"><span className="step-label">Comece pela sua impressão</span><h2>Do arquivo ao custo.<br />Da venda ao lucro entendido.</h2><p>Importe um arquivo fatiado ou informe peso e tempo. Não precisa configurar tudo antes.</p>
-          <PrintImport primary disabled={!ready} draft={current} onApply={update} />
-          <div className="start-alternatives"><button type="button" className="secondary" disabled={!ready} onClick={() => update({ ...current, ux: { ...ux, entry: 'manual', stage: 'print' } })}>Preencher manualmente — peso e tempo</button><button type="button" className="text-button" disabled={!ready} onClick={() => { void exploreExample(); }}>Experimentar com um exemplo fictício</button></div>
+        {ux.entry === 'none' ? <section className="welcome"><span className="step-label">Comece pela sua impressão</span><h2>Descubra o custo ou o preço sem formulários complicados.</h2><p>Escolha seu objetivo e importe o arquivo fatiado. Você pode calcular só o filamento sem configurar uma oficina.</p>
+          <fieldset className="quick-goals"><legend>O que você deseja descobrir?</legend>
+            <label><input type="radio" name="start-goal" checked={startGoal === 'profit'} onChange={() => setStartGoal('profit')} />Quanto devo cobrar?</label>
+            <label><input type="radio" name="start-goal" checked={startGoal === 'cost'} onChange={() => setStartGoal('cost')} />Quanto custa imprimir?</label>
+            <label><input type="radio" name="start-goal" checked={startGoal === 'sale'} onChange={() => setStartGoal('sale')} />Já tenho um preço: quanto vou lucrar?</label>
+          </fieldset>
+          <PrintImport primary disabled={!ready} draft={current} onApply={startWithGoal} />
+          <div className="start-alternatives"><button type="button" className="secondary" disabled={!ready} onClick={() => startWithGoal({ ...current, ux: { ...ux, entry: 'manual', stage: 'print' } })}>Preencher manualmente — peso e tempo</button><button type="button" className="text-button" disabled={!ready} onClick={() => { void exploreExample(); }}>Experimentar com um exemplo fictício</button></div>
           {recovery && <div className="recovery-card"><h3>Há um rascunho neste dispositivo</h3><p>{text(recovery, 'productName') || 'Impressão sem nome'} · a data e as entradas serão preservadas.</p><button type="button" className="secondary" onClick={() => { update(withExperience(recovery)); setRecovery(null); setEditing({}); setSavedKey(''); }}>Continuar de onde parei</button></div>}
           <button type="button" className="text-button" onClick={() => { setPage('settings'); setShowWorkshop(true); }}>Configurar minha oficina (opcional)</button>
         </section> : <>
@@ -182,12 +217,12 @@ export function App() {
           <CalculationNavigation ux={ux} onStage={setStage} />
           <form onSubmit={submit} noValidate>
             {show('print') && <PrintStep />}
-            {show('costs') && <section id="costs-step"><div className="section-heading"><span className="step-label">Custos</span><h2>Quanto custa fabricar esta peça?</h2><p>Use seus valores ou escolha perfis salvos. Você pode calcular apenas material e energia.</p></div><FilamentFields entries={realEntries} onProfile={useProfile} /><PrinterFields entries={realEntries} onProfile={useProfile} />{ux.intent === 'cost' && <PackagingFields />}<OptionalCosts /></section>}
+            {show('costs') && <section id="costs-step"><div className="section-heading"><span className="step-label">Custos</span><h2>Quanto custa fabricar esta peça?</h2><p>Para começar, informe somente o preço do filamento. Energia, máquina e trabalho são opcionais.</p></div><FilamentFields entries={realEntries} onProfile={useProfile} />{ux.machineIncluded ? <PrinterFields entries={realEntries} onProfile={useProfile} /> : <details className="optional-costs"><summary>Incluir energia e custo da impressora (opcional)</summary><PrinterFields entries={realEntries} onProfile={useProfile} /></details>}{ux.intent === 'cost' && <details><summary>Incluir embalagem (opcional)</summary><PackagingFields /></details>}<OptionalCosts /></section>}
             {ux.intent === 'sale' && show('sale') && <SaleStep tables={catalog.tables} onSaveShop={() => { void saveShop(); }} />}
-            {show('result') && <ExperienceResult tables={catalog.tables} state={automatic.state} onConfirm={() => setStage('sale')} onResolve={resolvePending} onSell={() => update(beginSale(current))} onAdjustPrice={price => update(applyFinalPrice(current, price))} onSave={() => { void saveResult(); }} saved={savedKey === resultKey} />}
+            {show('result') && <ExperienceResult tables={catalog.tables} state={automatic.state} issues={issues} onFix={fixIssue} onConfirm={() => setStage('sale')} onResolve={resolvePending} onSell={() => update(beginSale(current))} onAdjustPrice={price => update(applyFinalPrice(current, price))} onSave={() => { void saveResult(); }} saved={savedKey === resultKey} />}
             <StageActions ux={ux} onStage={setStage} />
-          </form></div><FinancialSummary draft={current} state={automatic.state} onResolve={resolvePending} /></div>
-          <p className="automatic-note">O cálculo é atualizado automaticamente após uma pausa na digitação. Valores antigos ficam ocultos durante alterações ou erros.</p>
+          </form></div><FinancialSummary draft={current} state={automatic.state} issues={issues} onFix={fixIssue} onResolve={resolvePending} /></div>
+          <p className="automatic-note">Atualizamos os cálculos automaticamente. Custos opcionais ficam recolhidos; caso falte algo, use Corrigir no resumo.</p>
         </>}
       </> : page === 'products' ? <ProductLibrary entries={entries} busy={busy} onNew={() => { void startNew(); }} onEdit={(entry, duplicate) => { void editRecord(entry, duplicate); }} onTrash={entry => mutate(() => repo().trash(entry.id), 'Registro movido para a lixeira. Você pode restaurá-lo em Meus produtos.')} onRestore={entry => mutate(() => repo().restore(entry.id), 'Registro restaurado com seus dados e regras originais.')} /> : <div className="settings-area">
         <section><h2>Aparência e modo de uso</h2><label>Aparência<select value={theme} onChange={event => chooseTheme(event.target.value)}><option value="system">Sistema</option><option value="light">Claro</option><option value="dark">Escuro</option></select></label><button type="button" className="secondary" aria-pressed={ux.mode === 'advanced'} onClick={chooseMode}>{ux.mode === 'simple' ? 'Abrir modo avançado' : 'Voltar ao modo simples'}</button><p>Os dois modos usam os mesmos dados e cálculos. O simples mostra uma decisão por vez.</p></section>

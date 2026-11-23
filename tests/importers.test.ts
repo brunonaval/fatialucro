@@ -47,7 +47,7 @@ describe('importação local de metadados, sem fatiar geometria', () => {
     expect(parsed.material).toBe('PLA');
     expect(parsed.plates[0]).toMatchObject({ grams: '22.31', materials: [{ name: 'PLA', grams: '22.31' }] });
     const draft = applyImportedPlate(defaultDraft(), parsed, parsed.plates[0]!);
-    expect(draft.materials).toHaveLength(1);
+    expect(draft.materials).toHaveLength(0); expect(draft.fields.grams).toBe('22.31'); expect(draft.fields.materialName).toBe('PLA');
     expect(draft.ux?.origin?.material).toBe('PLA');
   });
   it('PLA realmente consumidos em dois filamentos permanecem separados para a precificação', () => {

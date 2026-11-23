@@ -7,5 +7,5 @@ export function CalculationNavigation({ ux, onStage }: Props) {
 }
 export function StageActions({ ux, onStage }: Props) {
   const stages = calculationStages(ux); const index = stages.indexOf(ux.stage);
-  return <div className="step-actions">{index > 0 && <button type="button" className="secondary" onClick={() => onStage(stages[index - 1]!)}>← Voltar</button>}{index >= 0 && index < stages.length - 1 ? <button type="button" onClick={() => onStage(stages[index + 1]!)}>{ux.stage === 'print' ? 'Informar custos →' : ux.stage === 'costs' && ux.intent === 'cost' ? 'Ver custo da impressão' : ux.stage === 'costs' ? 'Continuar para venda →' : 'Ver resultado da venda'}</button> : ux.intent === 'sale' && <button type="submit">Atualizar resultado agora</button>}</div>;
+  return <div className="step-actions">{index > 0 && <button type="button" className="secondary" onClick={() => onStage(stages[index - 1]!)}>← Voltar</button>}{index >= 0 && index < stages.length - 1 ? <button type="button" onClick={() => onStage(stages[index + 1]!)}>{ux.stage === 'print' ? 'Informar custos →' : ux.stage === 'costs' && ux.intent === 'cost' ? 'Ver custo da impressão' : ux.stage === 'costs' ? 'Continuar para venda →' : 'Ver resultado da venda'}</button> : null}</div>;
 }

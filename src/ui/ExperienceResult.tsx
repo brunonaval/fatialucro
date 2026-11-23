@@ -9,11 +9,18 @@ import { Input } from './Fields';
 import { useExperience } from './ExperienceContext';
 import { CostMetrics, FinancialMetrics, PendingQuestions } from './FinancialSummary';
 import { tariffHints } from '../app/tariff-hints';
+import { GuidedIssues } from './GuidedIssues';
+import type { GuidedIssue } from './guided-validation';
 import type { ShopeeTable } from '../marketplaces/catalogs/types';
 
-export function ExperienceResult({ state, frozen, onConfirm, onResolve, onSell, onSave, onAdjustPrice, saved = false, tables = [] }: { state?: FinancialState; frozen?: ExperienceOutput; onConfirm?: () => void; onResolve?: (target: string) => void; onSell?: () => void; onSave?: () => void; onAdjustPrice?: (price: string) => void; saved?: boolean; tables?: readonly ShopeeTable[] }) {
+export function ExperienceResult({ state, frozen, onConfirm, onResolve, onSell, onSave, onAdjustPrice, saved = false, tables = [], issues = [], onFix }: { state?: FinancialState; frozen?: ExperienceOutput; onConfirm?: () => void; onResolve?: (target: string) => void; onSell?: () => void; onSave?: () => void; onAdjustPrice?: (price: string) => void; saved?: boolean; tables?: readonly ShopeeTable[]; issues?: readonly GuidedIssue[]; onFix?: (issue: GuidedIssue) => void }) {
   const { draft, ux } = useExperience(); const output = frozen ?? (state?.phase === 'ready' ? state.output : undefined);
-  if (!output) return <section id="result-step" className="result-empty" aria-live="polite"><span className="step-label">Resultado</span><h2>{state?.phase === 'processing' || state?.phase === 'waiting' ? 'Seu resultado está sendo atualizado' : 'Vamos completar seu cálculo'}</h2><p>{state?.phase === 'invalid' ? state.error : 'Informe os dados da impressão e os custos escolhidos. O cálculo aparece automaticamente.'}</p><p>Valores anteriores ficam ocultos durante a edição ou erro.</p></section>;
+  if (!output) return <section id="result-step" className="result-empty" aria-live="polite"><span className="step-label">Resultado</span><h2>{state?.phase === 'processing' || state?.phase === 'waiting' ? 'Calculando com seus dados…' : issues.length ? 'Vamos resolver os campos que faltam' : 'Ainda não foi possível calcular'}</h2>
+    {state?.preview && <CostMetrics preview={state.preview} />}
+    <GuidedIssues issues={issues} {...(onFix ? { onFix } : {})} />
+    {!issues.length && <p>{state?.phase === 'invalid' ? state.error : 'Importe ou informe os dados da impressão e o preço do material.'}</p>}
+    {issues.length > 0 && state?.phase === 'invalid' && <details><summary>Detalhe técnico da validação</summary><p>{state.error}</p></details>}
+    <p>Valores antigos não são apresentados como atuais. O custo conhecido continua visível, quando disponível.</p></section>;
   if (output.kind === 'blocked-search') return <section id="result-step"><span className="status-badge warning">Busca não concluída</span><h2>Ainda não há um preço mínimo calculável</h2><p>Uma condição desconhecida interrompe a busca, ou a meta não foi alcançada no intervalo informado. Não mostramos o preço de um candidato arbitrário como sugestão.</p>{output.data.solution?.status === 'partial' && <PendingQuestions pending={output.data.solution.pending} {...(onResolve ? { onResolve } : {})} />}{onConfirm && <button type="button" onClick={onConfirm}>Conferir venda e condições</button>}</section>;
   const demo = output.draft.ux?.entry === 'example'; const sale = output.kind === 'sale' ? output.data : null;
   const partial = sale?.result.status === 'partial'; const status = sale ? partial ? 'Parcial' : sale.result.confidence === 'provisional' ? 'Simulação provisória' : 'Completo' : 'Custos selecionados';

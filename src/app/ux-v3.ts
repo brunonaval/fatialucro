@@ -27,7 +27,7 @@ export function calculationStages(ux: ExperienceState) {
 }
 export function beginSale(draft: CalculatorDraft): CalculatorDraft {
   if (!draft.ux) throw new Error('Cenário indisponível.');
-  return { ...draft, ux: { ...draft.ux, intent: 'sale', stage: 'sale' } };
+  return { ...draft, fields: { ...draft.fields, quantity: text(draft, 'quantity') || '1' }, ux: { ...draft.ux, intent: 'sale', stage: 'sale' } };
 }
 export function applyFinalPrice(draft: CalculatorDraft, price: string): CalculatorDraft {
   money(price.replace(',', '.'));
@@ -43,7 +43,7 @@ export function acceptHypotheses(draft: CalculatorDraft, tableId: string, accept
 }
 export function costExclusions(draft: CalculatorDraft): string[] {
   const ux = draft.ux; if (!ux) return [];
-  return [ux.materialIncluded === false ? 'Material não incluído' : '', !ux.machineIncluded ? 'Máquina/energia não incluídas' : draft.fields.machineMode === 'detailed' && !ux.wearIncluded ? 'Manutenção e depreciação não incluídas' : '', ux.labor === 'excluded' ? 'Mão de obra não incluída' : '', !ux.packagingIncluded ? ux.packagingDecision === 'unknown' && ux.intent === 'sale' ? 'Embalagem ainda não confirmada' : 'Embalagem não incluída' : '', !ux.extrasIncluded ? 'Consumíveis e reserva de perdas não incluídos' : ''].filter(Boolean);
+  return [ux.materialIncluded === false ? 'Material não incluído' : '', !ux.machineIncluded ? 'Máquina/energia não incluídas' : draft.fields.machineMode === 'detailed' && !ux.wearIncluded ? 'Manutenção e depreciação não incluídas' : '', ux.labor === 'excluded' ? 'Mão de obra não incluída' : '', !ux.packagingIncluded ? ux.packagingDecision === 'unknown' && ux.intent === 'sale' ? 'Embalagem ainda não confirmada' : 'Embalagem não incluída' : (ux.packagingExtraIncluded === false ? 'Embalagem adicional por pedido não incluída' : ''), !ux.extrasIncluded ? 'Consumíveis e reserva de perdas não incluídos' : ''].filter(Boolean);
 }
 export function profileSignature(draft: CalculatorDraft, kind: 'filament' | 'printer' | 'store') {
   const keys = kind === 'filament' ? ['filament', 'materialName'] : kind === 'printer' ? ['printerName', 'machineMode', 'machine', 'watts', 'kwh', 'maintenance', 'depreciation'] : ['seller', ...programQuestions.map(program => program.field)];

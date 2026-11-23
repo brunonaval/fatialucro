@@ -2,7 +2,23 @@ import { D } from '../engine/decimal';
 export type FieldKind = 'money' | 'decimal' | 'weight' | 'duration' | 'percent' | 'ratio';
 const numeric = /^\d{1,18}(?:[,.]\d{1,12})?$/;
 export function normalizeNumeric(value: string, kind: FieldKind): string {
-  let text = value.trim().replace(/^R\$\s*/, '').replace(/\s*(%|g|h)$/, '').trim();
+  let text = value.trim().replace(/^R\$\s*/i, '').trim();
+  if (kind === 'duration') {
+    const pattern = /(\d+(?:[,.]\d+)?)\s*(min|h|m|s)(?=\d|$|\s)/gi;
+    const terms = [...text.matchAll(pattern)];
+    const remaining = text.replace(pattern, '').trim();
+    if (terms.length && !remaining) {
+      const seen = new Set<string>(); let hours = new D(0);
+      for (const [, amount, marker] of terms) {
+        const unit = marker!.toLowerCase() === 'min' ? 'm' : marker!.toLowerCase();
+        if (seen.has(unit)) return value;
+        seen.add(unit);
+        hours = hours.plus(new D(amount!.replace(',', '.')).div(unit === 'h' ? 1 : unit === 'm' ? 60 : 3600));
+      }
+      return hours.toDecimalPlaces(12).toFixed();
+    }
+  }
+  text = text.replace(/\s*(%|g|h)$/i, '').trim();
   if (/^\d{1,3}(?:\.\d{3})+,\d+$/.test(text)) text = text.replaceAll('.', '');
   if (kind === 'duration' && /^\d{1,18}:\d{2}(?::\d{2}(?:[,.]\d{1,10})?)?$/.test(text)) {
     const [hours, minutes, seconds = '0'] = text.split(':');

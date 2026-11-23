@@ -17,6 +17,7 @@ export interface ExperienceState {
   volume: { answer: 'above' | 'below' | 'equal' | 'unknown'; threshold: number | null; date: string };
   materialIncluded?: boolean;
   packagingDecision?: 'include' | 'exclude' | 'unknown';
+  packagingExtraIncluded?: boolean;
   programDeclaration?: { answer: 'none' | 'some' | 'unknown'; date: string; programs: string[] };
   persistentPrograms?: string[];
   assumptionReview?: { date: string; tableId: string; accepted: string[] };

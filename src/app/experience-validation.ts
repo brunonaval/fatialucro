@@ -4,6 +4,7 @@ export function validateExperience(value: unknown): asserts value is ExperienceS
   const ux = value as ExperienceState;
   if (ux.materialIncluded !== undefined && typeof ux.materialIncluded !== 'boolean') throw new Error('Seleção de material inválida.');
   if (ux.packagingDecision !== undefined && !['include', 'exclude', 'unknown'].includes(ux.packagingDecision)) throw new Error('Seleção de embalagem inválida.');
+  if (ux.packagingExtraIncluded !== undefined && typeof ux.packagingExtraIncluded !== 'boolean') throw new Error('Seleção de embalagem adicional inválida.');
   const programNames = ['returns', 'highlight', 'ads', 'affiliates', 'advance'];
   const names = (list: unknown, allowed: string[]) => Array.isArray(list) && list.length <= allowed.length && new Set(list).size === list.length && list.every(item => allowed.includes(item));
   if (ux.programDeclaration && (!['none', 'some', 'unknown'].includes(ux.programDeclaration.answer) || typeof ux.programDeclaration.date !== 'string' || ux.programDeclaration.date.length > 10 || !names(ux.programDeclaration.programs, programNames))) throw new Error('Declaração de programas inválida.');

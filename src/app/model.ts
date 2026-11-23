@@ -73,8 +73,11 @@ export function buildManufacturing(draft: CalculatorDraft): ManufacturingInput {
 }
 export function packagingInput(draft: CalculatorDraft): Pick<SaleInput, 'packagingPerUnit' | 'packagingPerOrder' | 'packagingPurchase'> {
   if (draft.ux && !draft.ux.packagingIncluded) return { packagingPerUnit: '0', packagingPerOrder: '0' };
-  if (draft.ux?.packaging.mode === 'pack') return { packagingPerUnit: '0', packagingPerOrder: parseBrazilianMoney(text(draft, 'packagingOrder')), packagingPurchase: { amount: parseBrazilianMoney(draft.ux.packaging.amount), units: integer(draft.ux.packaging.units, 'Embalagens no pacote') } };
-  return { packagingPerUnit: parseBrazilianMoney(text(draft, 'packagingUnit')), packagingPerOrder: parseBrazilianMoney(text(draft, 'packagingOrder')) };
+  // Legacy drafts keep their additional cost if nonempty. New drafts opt in explicitly.
+  const extraIncluded = draft.ux?.packagingExtraIncluded ?? text(draft, 'packagingOrder').trim() !== '';
+  const perOrder = extraIncluded ? parseBrazilianMoney(text(draft, 'packagingOrder')) : '0';
+  if (draft.ux?.packaging.mode === 'pack') return { packagingPerUnit: '0', packagingPerOrder: perOrder, packagingPurchase: { amount: parseBrazilianMoney(draft.ux.packaging.amount), units: integer(draft.ux.packaging.units, 'Embalagens no pacote') } };
+  return { packagingPerUnit: parseBrazilianMoney(text(draft, 'packagingUnit')), packagingPerOrder: perOrder };
 }
 
 export function buildScenario(draft: CalculatorDraft, tables: readonly ShopeeTable[] = bundledTables) {
@@ -137,11 +140,14 @@ export function buildScenario(draft: CalculatorDraft, tables: readonly ShopeeTab
 }
 
 export function applyPlate(draft: CalculatorDraft, plate: ImportedPlate): CalculatorDraft {
+  const single = plate.materials.length === 1;
   return { fields: { ...draft.fields, basis: 'batch', grams: plate.grams ?? '',
     hours: plate.seconds === null ? '' : new D(plate.seconds).div(3600).toDecimalPlaces(12).toFixed(),
-    pieces: plate.pieces === null ? '' : String(plate.pieces), filament: '' },
-    // A file never supplies a price per kg. Require a profile or explicit price.
-    materials: plate.materials.length ? plate.materials.map((item, index) => ({ id: `import-${index}`, name: item.name, grams: item.grams ?? '', pricePerKg: '' })) : [],
+    pieces: plate.pieces === null ? '' : String(plate.pieces), filament: '',
+    ...(single ? { materialName: plate.materials[0]!.name } : {}) },
+    // A single consumed filament uses the simple price-of-bobbin workflow. Real
+    // multiple consumptions remain separate even when the type label matches.
+    materials: !single && plate.materials.length ? plate.materials.map((item, index) => ({ id: `import-${index}`, name: item.name, grams: item.grams ?? '', pricePerKg: '' })) : [],
   };
 }
 
