@@ -59,6 +59,7 @@ export function profileSource(draft: CalculatorDraft, kind: 'filament' | 'printe
 export function pendingAction(pending: Pending): { label: string; target: string } {
   if (pending.id.includes('shipping')) return { label: 'Conferir frete', target: 'shop-shipping' };
   if (pending.id.includes('returns')) return { label: 'Confirmar Devolução Fácil', target: 'shop-programs' };
+  if (pending.id.includes('cpf-volume') || pending.id.includes('cpf-450')) return { label: 'Conferir volume de pedidos', target: 'shop-volume' };
   if (pending.id.includes('cpf') || pending.id.includes('seller')) return { label: 'Ver condições de CPF/CNPJ', target: 'shop-seller' };
   if (pending.id.includes('packaging')) return { label: 'Conferir embalagem', target: 'packaging-cost' };
   if (/assumption|validity|rounding|precedence/.test(pending.id)) return { label: 'Conferir hipóteses', target: 'simulation-review' };

@@ -26,27 +26,30 @@ export function ExperienceResult({ state, frozen, onConfirm, onResolve, onSell, 
   if (output.kind === 'blocked-search') {
     const estimate = output.referencePreview;
     const conditional = estimate?.returnsUnconfirmed ?? false;
-    const label = estimate && estimate.lower === estimate.upper
-      ? currency(estimate.lower)
-      : estimate ? `${currency(estimate.lower)} a ${currency(estimate.upper)}` : null;
+    const label = estimate?.lower !== null && estimate?.lower !== undefined && estimate.upper !== null
+      ? estimate.lower === estimate.upper ? currency(estimate.lower) : `${currency(estimate.lower)} a ${currency(estimate.upper)}` : null;
     const pending = output.data.solution?.status === 'partial' ? output.data.solution.pending : [];
     return <section id="result-step" className="result-blocked">
-      <span className="status-badge warning">{estimate ? 'Estimativa não confirmada' : 'Busca não concluída'}</span>
+      <span className="status-badge warning">{estimate ? label ? 'Estimativa não confirmada' : 'Meta fora do intervalo' : 'Busca não concluída'}</span>
+      {issues.length > 0 && <GuidedIssues issues={issues} {...(onFix ? { onFix } : {})} />}
       {estimate ? <>
         <h2>Por quanto posso vender?</h2>
         <div className="reference-price-preview" aria-label="Preço estimado de referência">
           <span>{estimate.excludedActivePrograms.length ? 'Preço-base parcial, sem taxas de programas ativos' : 'Preço orientativo com tarifas documentadas'}</span>
-          <strong>{label}</strong>
-          <p>{conditional ? 'Cenários com e sem cobrança da Devolução Fácil.' : 'Simulação com as condições conhecidas.'} Não é preço garantido nem lucro confirmado. Se houver outras cobranças desconhecidas, o valor real pode superar esta referência.</p>
-          {estimate.excludedActivePrograms.length > 0 && <div className="notice" role="status"><strong>Atenção: NÃO use esse preço-base como preço final de venda.</strong><p>Você informou participação ativa em {estimate.excludedActivePrograms.join(', ')}. Como os valores dessas cobranças não estão determinados, elas NÃO foram incluídas no preço-base ilustrativo. O preço necessário para sua margem pode ser maior.</p><p>Para obter um preço mais completo, informe as taxas reais dos programas ativos nas condições da Shopee. As respostas “Sim” foram mantidas.</p></div>}\n          {estimate.hypotheticalConditions.length > 0 && <details><summary>Hipóteses usadas porque você respondeu “Não sei”</summary><ul>{estimate.hypotheticalConditions.map(condition => <li key={condition}>{condition}</li>)}</ul><p>Você já respondeu. Não precisa preencher novamente para ver este cenário; confira as condições somente para obter um cálculo mais preciso.</p></details>}
+          <strong>{label ?? 'Meta não atingida no intervalo'}</strong>
+          {estimate.unreachableScenarios > 0 && <p className="notice">{label ? 'Em pelo menos um cenário adicional, a meta não cabe no intervalo.' : 'A meta não foi atingida nos cenários calculáveis.'} Aumente o limite de {currency(estimate.searchEnd)} ou reduza a meta. Isso não é um erro de preenchimento.</p>}
+          <p>{conditional ? 'Cenários com e sem cobrança da Devolução Fácil.' : 'Simulação com os custos e as tarifas que podem ser calculados.'} Não é preço garantido nem lucro confirmado. Se houver outras cobranças desconhecidas, o valor real pode superar esta referência.</p>
+          {estimate.excludedActivePrograms.length > 0 && <div className="notice" role="status"><strong>Atenção: NÃO use esse preço-base como preço final de venda.</strong><p>Você informou participação ativa em {estimate.excludedActivePrograms.join(', ')}. Como os valores dessas cobranças não estão determinados, elas NÃO foram incluídas no preço-base ilustrativo. O preço necessário para sua margem pode ser maior.</p><p>Para obter um preço mais completo, informe as taxas reais dos programas ativos nas condições da Shopee. As respostas “Sim” foram mantidas.</p></div>}
+          {estimate.hypotheticalConditions.length > 0 && <details><summary>Hipóteses e custos ainda não confirmados</summary><ul>{estimate.hypotheticalConditions.map(condition => <li key={condition}>{condition}</li>)}</ul><p>Você não precisa preencher novamente para ver esta referência; confira as condições apenas para melhorar a precisão.</p></details>}
         </div>
         <p className="field-hint">Busca desde {currency(estimate.searchStart)}. O valor de anúncio pode mudar após conferir cobranças reais da Shopee e despesas não informadas.</p>
       </> : <>
         <h2>Não foi possível estimar um preço confiável</h2>
-        <p>Falta saber alguma cobrança que pode alterar o preço. Você pode conferir as condições sem preencher a tela inteira.</p>
+        <p>{output.data.solution?.status === 'not-found' ? 'A meta não foi atingida dentro do intervalo de preços. Aumente o fim do intervalo ou reduza a meta de lucro/margem.' : 'Há uma tarifa ou faixa de preço sem fórmula aplicável. Seus dados foram preservados. Confira as condições indicadas abaixo.'}</p>
       </>}
       {pending.length > 0 && <details className="pending-review"><summary>{estimate ? 'O que falta conferir para o lucro ficar determinado?' : 'Ver informações pendentes'} ({pending.length})</summary><PendingQuestions pending={pending} {...(onResolve ? { onResolve } : {})} /></details>}
-      {onConfirm && <button type="button" className="secondary" onClick={onConfirm}>Conferir condições da Shopee</button>}
+      {(output.data.solution?.status === 'not-found' || !!estimate?.unreachableScenarios) && onFix && <button type="button" className="secondary" onClick={() => onFix({ id: 'sale:maxPrice', field: 'maxPrice', stage: 'sale', label: 'Fim do intervalo de busca', message: 'Aumente o limite para buscar a meta informada.' })}>Ajustar intervalo de preços</button>}
+      {onConfirm && text(draft, 'marketplace') === 'shopee' && <button type="button" className="secondary" onClick={onConfirm}>Conferir condições da Shopee</button>}
     </section>;
   }
   const demo = output.draft.ux?.entry === 'example'; const sale = output.kind === 'sale' ? output.data : null;

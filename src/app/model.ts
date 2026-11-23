@@ -90,7 +90,7 @@ export function packagingInput(draft: CalculatorDraft): Pick<SaleInput, 'packagi
   return { packagingPerUnit: parseBrazilianMoney(text(draft, 'packagingUnit')), packagingPerOrder: perOrder };
 }
 
-export function buildScenario(draft: CalculatorDraft, tables: readonly ShopeeTable[] = bundledTables) {
+export function buildScenario(draft: CalculatorDraft, tables: readonly ShopeeTable[] = bundledTables, referenceDiscountGross = false) {
   const programFields = scenarioPrograms(draft);
   draft = { ...draft, fields: programFields };
   const t = (name: string) => text(draft, name);
@@ -134,16 +134,26 @@ export function buildScenario(draft: CalculatorDraft, tables: readonly ShopeeTab
         scope: scope(`${id}:scope`), base: base(`${id}:base`) };
     }
   }
+  // Unknown shipping may have an empty or stale amount. Only a valid partial
+  // amount is used in the known-cost subtotal; the catalog keeps the shipping
+  // uncertainty pending. An explicitly selected 'yes' still requires a value.
+  const shopeeShipping = () => {
+    if (draft.ux?.shipping === 'no') return '0.00';
+    if (draft.ux?.shipping === 'unknown') {
+      try { return m('shipping'); } catch { return '0.00'; }
+    }
+    return m('shipping');
+  };
   const input: SaleInput = {
     date: t('date'), purpose: 'simulation', unitPrice: m('price'), quantity: integer(t('quantity'), 'Quantidade vendida'),
     manufacturing: buildManufacturing(draft),
-    ...packagingInput(draft), sellerDiscount: saleExtraSelected(draft, 'discount') ? m('discount') : '0.00', sellerShipping: t('marketplace') === 'shopee' ? (draft.ux?.shipping === 'no' ? '0.00' : m('shipping')) : (saleExtraSelected(draft, 'shipping') ? m('shipping') : '0.00'),
+    ...packagingInput(draft), sellerDiscount: saleExtraSelected(draft, 'discount') ? m('discount') : '0.00', sellerShipping: t('marketplace') === 'shopee' ? shopeeShipping() : (saleExtraSelected(draft, 'shipping') ? m('shipping') : '0.00'),
     otherOperatingCosts: new D(expenseBreakdown(draft).other).plus(expenseBreakdown(draft).advertising).toFixed(2),
     selections: t('marketplace') === 'shopee' ? shopeeSelections(context) : {}, facts: t('marketplace') === 'shopee' ? shopeeFacts(context) : {},
     acceptedAssumptions: Object.fromEntries((['validity', 'rounding', 'precedence'] as const).map(kind => [kind, yes(`accept${kind[0]!.toUpperCase()}${kind.slice(1)}`) && (!draft.ux?.assumptionReview || (draft.ux.assumptionReview.date === t('date') && draft.ux.assumptionReview.tableId === selectTable(t('date'), tables)?.table.id && draft.ux.assumptionReview.accepted.includes(kind)))])),
   };
   const catalogAt = (price: string) => {
-    const catalog = t('marketplace') === 'shopee' ? createShopeeCatalog(context, price, input.sellerDiscount, input.date, overrides, tables) : directSaleCatalog();
+    const catalog = t('marketplace') === 'shopee' ? createShopeeCatalog(context, price, input.sellerDiscount, input.date, overrides, tables, referenceDiscountGross) : directSaleCatalog();
     return draft.ux?.packagingDecision === 'unknown' ? { ...catalog, pending: [...(catalog.pending ?? []), { id: 'cost:packaging', message: 'Confirme a embalagem: informe seu custo ou escolha explicitamente não incluir neste cálculo. Embalagem desconhecida não foi considerada zero.' }] } : catalog;
   };
   return { input, catalogAt };

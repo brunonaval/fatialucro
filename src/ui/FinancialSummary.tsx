@@ -1,5 +1,6 @@
 import { D } from '../engine/decimal';
 import type { CalculatorDraft } from '../app/model';
+import { text } from '../app/model';
 import type { ExperienceOutput } from '../app/experience';
 import type { FinancialState } from './useAutomaticCalculation';
 import type { CostPreview } from '../app/cost-preview';
@@ -35,6 +36,7 @@ export function FinancialMetrics({ output, advanced = false }: { output: Experie
       <div className="metric-row"><dt>Custo de fabricar e embalar as unidades vendidas</dt><dd>{currency(new D(result.manufacturing.total).plus(result.packaging).toFixed(2))}</dd></div>
       <div className="metric-row"><dt>Outras despesas informadas</dt><dd>{currency(result.otherOperatingCosts)}</dd></div>
       <div className="metric-row"><dt>Lucro operacional estimado do pedido</dt><dd className={`result-total ${result.operatingProfit?.startsWith('-') ? 'loss' : ''}`}>{complete ? `${result.operatingProfit?.startsWith('-') ? 'Prejuízo: ' : ''}${currency(result.operatingProfit)}` : 'Ainda não determinado'}</dd></div>
+      {!complete && <div className="metric-row"><dt>Saldo parcial antes das cobranças e custos desconhecidos (não é lucro)</dt><dd>{currency(new D(result.salesAfterDiscount).minus(result.knownMarketplaceFees).minus(result.sellerShipping).minus(result.operatingCosts).toFixed(2))}</dd></div>}
       <div className="metric-row"><dt>Lucro por unidade comercial</dt><dd>{result.operatingProfit === null ? 'Pendente' : currency(new D(result.operatingProfit).div(input.quantity).toFixed(2))}</dd></div>
       <div className="metric-row"><dt>Margem sobre a venda</dt><dd>{ratio(result.margin)}</dd></div>
       {advanced && <div className="metric-row"><dt>Markup sobre os custos</dt><dd>{ratio(result.markup)}</dd></div>}
@@ -43,14 +45,14 @@ export function FinancialMetrics({ output, advanced = false }: { output: Experie
 export function FinancialSummary({ draft, state, onResolve, issues = [], onFix, onRetry }: { draft: CalculatorDraft; state: FinancialState; onResolve?: (target: string) => void; issues?: readonly GuidedIssue[]; onFix?: (issue: GuidedIssue) => void; onRetry?: () => void }) {
   const output = state.phase === 'ready' ? state.output : undefined;
   const sale = output?.kind === 'sale' ? output : null; const partial = sale?.data.result.status === 'partial';
-  const status = sale ? partial ? 'Parcial' : sale.data.result.confidence === 'provisional' ? 'Simulação provisória' : 'Completo' : output?.kind === 'blocked-search' ? 'Busca não concluída' : 'Custos selecionados';
+  const status = sale ? partial ? 'Parcial' : sale.data.result.confidence === 'provisional' ? 'Simulação provisória' : 'Completo' : output?.kind === 'blocked-search' ? output.referencePreview ? output.referencePreview.lower === null ? 'Meta fora do intervalo' : 'Preço-base disponível' : 'Busca não concluída' : 'Custos selecionados';
   const exclusions = costExclusions(draft);
   return <aside className="summary-column" aria-label="Meu resumo" tabIndex={0}><section className="financial-summary" aria-busy={state.phase === 'processing'}><h2>Meu resumo</h2>
     <p role="status" className="summary-status">{state.phase === 'waiting' || state.phase === 'processing' ? 'Atualizando os dados informados…' : state.phase === 'invalid' ? state.errorKind === 'technical' ? 'Falha ao processar. Seus dados foram preservados.' : issues.length ? 'Confira os campos indicados abaixo.' : state.error : status}</p>
     {sale ? <><span className={`status-badge ${partial ? 'warning' : ''}`}>{status}</span><FinancialMetrics output={sale} advanced={draft.ux?.mode === 'advanced'} />{partial && <PendingQuestions pending={sale.data.result.pending} {...(onResolve ? { onResolve } : {})} />}</> : state.preview ? <CostMetrics preview={state.preview} /> : <p>Informe sua impressão e os custos escolhidos. Valores antigos ficam ocultos durante a edição.</p>}
-    {output?.kind === 'blocked-search' && output.referencePreview && <div className="reference-summary"><strong>Preço orientativo da Shopee</strong><p>{output.referencePreview.lower === output.referencePreview.upper ? currency(output.referencePreview.lower) : `${currency(output.referencePreview.lower)} a ${currency(output.referencePreview.upper)}`}</p><small>Estimativa de referência, não é lucro confirmado. Cobranças desconhecidas podem elevar o preço necessário.</small></div>}
+    {output?.kind === 'blocked-search' && output.referencePreview && <div className="reference-summary"><strong>{output.referencePreview.excludedActivePrograms.length ? 'Preço-base parcial — taxas não incluídas' : text(draft, 'marketplace') === 'shopee' ? 'Preço orientativo da Shopee' : 'Preço orientativo de venda direta'}</strong><p>{output.referencePreview.lower === null ? 'Meta não atingida no intervalo' : output.referencePreview.lower === output.referencePreview.upper ? currency(output.referencePreview.lower) : `${currency(output.referencePreview.lower)} a ${currency(output.referencePreview.upper)}`}</p><small>Estimativa de referência, não é lucro confirmado. Cobranças desconhecidas podem elevar o preço necessário.</small>{output.referencePreview.unreachableScenarios > 0 && <p className="field-hint">Ajuste o limite de preço ou a meta; nem todos os cenários são viáveis no intervalo.</p>}</div>}
     {state.phase === 'invalid' && state.errorKind === 'technical' && <div className="technical-recovery" role="alert"><strong>Não foi possível executar o cálculo no dispositivo.</strong><p>Os campos continuam salvos no formulário. Tente novamente; se persistir, confira a instalação.</p>{onRetry && <button type="button" className="secondary" onClick={onRetry}>Tentar calcular novamente</button>}<details><summary>Detalhes do processamento</summary><p>{state.error}</p></details></div>}
-    {state.phase === 'invalid' && state.errorKind !== 'technical' && <GuidedIssues issues={issues} {...(onFix ? { onFix } : {})} />}
+    {(state.phase === 'invalid' && state.errorKind !== 'technical' || output?.kind === 'blocked-search') && <GuidedIssues issues={issues} {...(onFix ? { onFix } : {})} />}
     <details><summary>O que não foi considerado?</summary>{exclusions.length ? <ul>{exclusions.map(item => <li key={item}>{item}</li>)}</ul> : <p>Os custos selecionados estão incluídos; despesas e tributos não informados não são estimados.</p>}{draft.ux?.labor === 'zero' && <p>Mão de obra definida conscientemente como R$ 0,00.</p>}</details>
     <p className="summary-footnote">Estimativa dos custos selecionados. Nenhum repasse está confirmado.</p>
   </section></aside>;

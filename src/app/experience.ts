@@ -83,6 +83,12 @@ export function calculateExperience(draft: CalculatorDraft, tables: readonly Sho
     return { kind: 'cost', draft: normalized, input, cost: calculateCostSnapshot(input) };
   }
   const searching = ['profit', 'margin', 'equilibrium'].includes(text(normalized, 'calculation'));
+  // These advanced fields are optional. Blank restores the documented default
+  // in the calculation copy, never in the editable user draft.
+  if (searching) {
+    if (!text(normalized, 'minPrice').trim()) normalized.fields.minPrice = '0.01';
+    if (!text(normalized, 'maxPrice').trim()) normalized.fields.maxPrice = '100.00';
+  }
   const prepared = searching ? { ...normalized, fields: { ...normalized.fields, price: text(normalized, 'maxPrice') } } : normalized;
   const data = calculateWorkspace(prepared, tables);
   if (searching && data.solution?.status !== 'found') {

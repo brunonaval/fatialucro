@@ -38,7 +38,7 @@ export const shopeeSources = {
 
 /** Versioned documentary adapter. Observation and selection never prove validity. */
 export function createShopeeCatalog(context: ShopeeContext, unitPrice: string, sellerDiscount: string, saleDate: string,
-  overrides: Readonly<Record<string, ManualFee>> = {}, tables: readonly ShopeeTable[] = bundledTables): TariffCatalog {
+  overrides: Readonly<Record<string, ManualFee>> = {}, tables: readonly ShopeeTable[] = bundledTables, referenceDiscountGross = false): TariffCatalog {
   date(saleDate);
   const selection = selectTable(saleDate, tables);
   const table = selection?.table ?? tables.filter(item => item.confirmation !== 'withdrawn').sort((a, b) => b.revision - a.revision)[0];
@@ -77,7 +77,8 @@ export function createShopeeCatalog(context: ShopeeContext, unitPrice: string, s
     rules.push({ id, name, version: table.version, formula, base: 'gross-sales', scope: 'item',
       requirement: 'mandatory', conditions: [], includes: [], effectiveFrom: table.effectiveFrom, effectiveUntil: table.effectiveUntil, evidence, ...options });
   };
-  if (!discount.isZero()) {
+  const discountBasisKnownForScenario = discount.isZero() || referenceDiscountGross;
+  if (!discountBasisKnownForScenario) {
     pending.push({ id: 'shopee:discount-base', message: 'A base e a faixa de comissão com desconto/cupom não foram comprovadas. Informe parâmetros personalizados para os dois componentes da comissão básica.', manualRuleIds: ['shopee:commission', 'shopee:fixed'] });
   }
   const band = priceBand(table, unitPrice);
@@ -92,10 +93,10 @@ export function createShopeeCatalog(context: ShopeeContext, unitPrice: string, s
   } else {
     const rate = band!.percent;
     const fixed = band!.fixed;
-    add('shopee:commission', 'Comissão percentual (já contempla transação)', discount.isZero() ? { kind: 'percentage', rate } : null,
+    add('shopee:commission', 'Comissão percentual (já contempla transação)', discountBasisKnownForScenario ? { kind: 'percentage', rate } : null,
       sources.commission, { includes: ['shopee:transaction'] });
     add('shopee:fixed', context.seller === 'CNPJ' && price.lt(table.cnpjLow.below) ? 'Parcela proporcional de baixo valor CNPJ' : 'Parcela fixa por item',
-      !discount.isZero() ? null : context.seller === 'CNPJ' && price.lt(table.cnpjLow.below) ? { kind: 'percentage', rate: table.cnpjLow.fixedPercent } : { kind: 'fixed', amount: fixed }, sources.commission);
+      !discountBasisKnownForScenario ? null : context.seller === 'CNPJ' && price.lt(table.cnpjLow.below) ? { kind: 'percentage', rate: table.cnpjLow.fixedPercent } : { kind: 'fixed', amount: fixed }, sources.commission);
   }
   // Named unresolved placeholders let a user replace precisely these charges.
   // Accepting validity or rounding alone cannot supply their missing formulas.
@@ -125,7 +126,7 @@ export function createShopeeCatalog(context: ShopeeContext, unitPrice: string, s
       { requirement: 'optional', scope: 'order', conditions: [{ key: 'returnsBillable', equals: true }] });
   }
   if (context.highlightCampaign === 'unknown') pending.push({ id: 'shopee:campaign-enrollment', message: 'Confirme a adesão efetiva e o período da Campanha de Destaque.' });
-  else add('shopee:highlight', 'Campanha de Destaque: todas as vendas da loja durante adesão', discount.isZero() ? { kind: 'percentage', rate: table.programs.highlightPercent } : null,
+  else add('shopee:highlight', 'Campanha de Destaque: todas as vendas da loja durante adesão', discountBasisKnownForScenario ? { kind: 'percentage', rate: table.programs.highlightPercent } : null,
     sources.campaign, { requirement: 'optional', conditions: [{ key: 'highlightActive', equals: true }] });
   const deferred = [
     ['adsEasy', 'Ads Fácil', ['23254/FAQ-Ads-Facil']],

@@ -1,6 +1,6 @@
-import { D } from '../engine/decimal';
+import { D, date } from '../engine/decimal';
 import type { CalculatorDraft } from '../app/model';
-import { saleExtraSelected, text } from '../app/model';
+import { manualIds, saleExtraSelected, text } from '../app/model';
 import { normalizeNumeric, numericIssue } from './format';
 import type { FieldKind } from './format';
 
@@ -86,6 +86,62 @@ export function guidedIssues(draft: CalculatorDraft): GuidedIssue[] {
     count('quantity', text(draft, 'quantity'), 'sale', 'Unidades vendidas');
     if (ux.saleUnit === 'kit') count('partsPerKit', ux.partsPerKit, 'sale', 'Peças por kit');
     const calculation = text(draft, 'calculation');
+    if (text(draft, 'marketplace') === 'shopee' && !['CPF', 'CNPJ'].includes(text(draft, 'seller')))
+      add('seller', 'sale', 'CPF ou CNPJ', 'Selecione o tipo de cadastro da sua loja para aplicar as tarifas.');
+    try { date(text(draft, 'date')); } catch { add('date', 'sale', 'Data do cenário', 'Informe uma data válida.'); }
+    if (['profit', 'margin', 'equilibrium'].includes(calculation)) {
+      const min = text(draft, 'minPrice').trim() || '0.01';
+      const max = text(draft, 'maxPrice').trim() || '100.00';
+      const low = normalizeNumeric(min, 'money');
+      const high = normalizeNumeric(max, 'money');
+      check('minPrice', min, 'sale', 'Início do intervalo de busca', 'money', true);
+      check('maxPrice', max, 'sale', 'Fim do intervalo de busca', 'money', true);
+      if (!numericIssue(low, 'money') && !numericIssue(high, 'money')) {
+        if (new D(high).lt(low)) add('maxPrice', 'sale', 'Fim do intervalo de busca', 'O preço final deve ser maior ou igual ao preço inicial.');
+        else if (new D(high).minus(low).gte(1000)) add('maxPrice', 'sale', 'Fim do intervalo de busca', 'Reduza o intervalo para menos de R$ 1.000,00.');
+      }
+    }
+    if (calculation === 'compare') {
+      const values = text(draft, 'comparison').split(';').map(s => s.trim());
+      if (values.length > 20 || values.some(value => numericIssue(normalizeNumeric(value, 'money'), 'money') || new D(normalizeNumeric(value, 'money')).lte(0)))
+        add('comparison', 'sale', 'Preços para comparar', 'Informe de 1 a 20 preços positivos separados por ponto e vírgula.');
+    }
+    if (calculation === 'margin' && !numericIssue(text(draft, 'targetMargin'), 'ratio') && new D(text(draft, 'targetMargin').replace(',', '.')).gte(1))
+      add('targetMargin', 'sale', 'Margem desejada', 'Escolha uma margem inferior a 100%.');
+    if (text(draft, 'marketplace') === 'shopee') {
+      const requiredText = (field: string, label: string) => { if (!text(draft, field).trim()) add(field, 'sale', label, 'Informe ' + label.toLowerCase() + '.'); };
+      const enumField = (field: string, label: string, allowed: string[]) => { if (!allowed.includes(text(draft, field))) add(field, 'sale', label, 'Selecione uma opção válida.'); };
+      const enabled = manualIds.filter(id => draft.fields[id + ':manual'] === true &&
+        (id === 'shopee:cpf-extra' ? text(draft, 'seller') === 'CPF' :
+          id === 'shopee:returns-protection' ? text(draft, 'returns') === 'billable' :
+          text(draft, ({ 'shopee:highlight': 'highlight', 'shopee:adsEasy': 'ads', 'shopee:affiliates': 'affiliates', 'shopee:cashAdvance': 'advance' } as Record<string, string>)[id] ?? '') === 'active'));
+      if (draft.fields.manualBasic === true) {
+        check('manualRate', text(draft, 'manualRate'), 'sale', 'Comissão percentual personalizada', 'percent');
+        check('manualFixed', text(draft, 'manualFixed'), 'sale', 'Tarifa fixa personalizada', 'money');
+        enumField('manualRateScope', 'Incidência do percentual', ['item', 'order']);
+        enumField('manualFixedScope', 'Incidência da tarifa fixa', ['item', 'order']);
+        enumField('manualBase', 'Base da comissão', ['gross-sales', 'after-seller-discount']);
+        requiredText('manualReference', 'Origem ou motivo da personalização');
+      }
+      for (const id of enabled) {
+        const label = ({ 'shopee:cpf-extra': 'Adicional CPF', 'shopee:returns-protection': 'Devolução Fácil', 'shopee:highlight': 'Campanha de Destaque', 'shopee:adsEasy': 'Ads Fácil', 'shopee:affiliates': 'Afiliados', 'shopee:cashAdvance': 'Shopee Acelera' } as Record<string, string>)[id]!;
+        check(id + ':value', text(draft, id + ':value'), 'sale', 'Valor personalizado de ' + label, text(draft, id + ':kind') === 'percentage' ? 'percent' : 'money');
+        enumField(id + ':kind', 'Fórmula de ' + label, ['fixed', 'percentage']);
+        enumField(id + ':scope', 'Incidência de ' + label, ['item', 'order']);
+        enumField(id + ':base', 'Base de ' + label, ['gross-sales', 'after-seller-discount']);
+        requiredText(id + ':reference', 'Origem dos parâmetros de ' + label);
+      }
+      if (enabled.length || draft.fields.manualBasic === true) {
+        for (const [field, label] of [['manualFrom', 'Início do período personalizado'], ['manualUntil', 'Fim do período personalizado']] as const) {
+          try { date(text(draft, field)); } catch { add(field, 'sale', label, 'Informe uma data válida.'); }
+        }
+        if (text(draft, 'manualUntil') < text(draft, 'manualFrom'))
+          add('manualUntil', 'sale', 'Fim do período personalizado', 'O fim não pode ser anterior ao início.');
+      }
+      const orders = text(draft, 'orders');
+      if (text(draft, 'seller') === 'CPF' && orders.trim() && (!/^\d+$/.test(orders) || !Number.isSafeInteger(Number(orders))))
+        add('orders', 'sale', 'Número exato de pedidos em 90 dias', 'Informe um inteiro não negativo ou apague para usar a opção de volume.');
+    }
     if (calculation === 'direct' || calculation === 'compare') check('price', text(draft, 'price'), 'sale', 'Preço de venda', 'money', true);
     if (calculation === 'profit') check('targetProfit', text(draft, 'targetProfit'), 'sale', 'Lucro desejado', 'money');
     if (calculation === 'margin') check('targetMargin', text(draft, 'targetMargin'), 'sale', 'Margem desejada', 'ratio');
