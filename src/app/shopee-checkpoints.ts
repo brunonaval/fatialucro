@@ -33,9 +33,9 @@ export function shopeeCheckpoints(draft: CalculatorDraft, tables: readonly Shope
   checks.push({
     id: 'shop-programs',
     label: 'Programas adicionais',
-    state: pending.length ? 'pending' : active.length ? 'review' : 'answered',
+    state: pending.length ? 'review' : active.length ? 'review' : 'answered',
     detail: pending.length
-      ? `Falta conferir ${pending.length} de ${programQuestions.length} programas.`
+      ? `Você respondeu “Não sei” sobre ${pending.length} programa(s). O cenário orientativo usa hipóteses explícitas; para confirmar o lucro, confira as adesões.`
       : active.length
         ? `${active.length} programa(s) informado(s) como ativo(s) ou em teste. A cobrança ainda depende das regras aplicáveis.`
         : 'Você informou que não participa dos cinco programas listados.',
@@ -51,14 +51,14 @@ export function shopeeCheckpoints(draft: CalculatorDraft, tables: readonly Shope
     checks.push({
       id: 'shop-volume',
       label: 'Pedidos dos últimos 90 dias',
-      state: threshold === null ? 'pending' : exact ? 'answered' : current && ux?.volume.answer === 'equal' ? 'review' : current ? 'answered' : 'pending',
+      state: threshold === null ? 'pending' : exact ? 'answered' : current && ux?.volume.answer === 'equal' ? 'review' : current ? 'answered' : 'review',
       detail: threshold === null
         ? 'O limite documental para esta data ainda não está disponível.'
         : exact ? `${count} pedido(s) informado(s) para o período.`
         : current && ux?.volume.answer === 'equal'
           ? `Você informou exatamente ${threshold} pedidos; a incidência no limite pode continuar pendente.`
           : current ? 'Condição de volume informada para esta data.'
-          : `Confirme se houve mais, menos ou exatamente ${threshold} pedidos em 90 dias.`,
+          : `Você respondeu “Não sei” sobre o volume. A estimativa pode usar um cenário identificado; para lucro determinado, confira o volume real.`,
     });
   }
 
@@ -69,11 +69,11 @@ export function shopeeCheckpoints(draft: CalculatorDraft, tables: readonly Shope
   checks.push({
     id: 'shop-shipping',
     label: 'Frete descontado da venda',
-    state: knownNo || knownYes ? 'answered' : 'pending',
+    state: knownNo || knownYes ? 'answered' : ux?.shipping === 'unknown' ? 'review' : 'pending',
     detail: knownNo ? 'Você confirmou que não há débito líquido de frete.'
       : knownYes ? 'Valor líquido de frete informado por você.'
         : ux?.shipping === 'yes' ? 'Informe quanto foi efetivamente debitado do seu repasse.'
-          : 'Confirme se há frete debitado ou escolha “Não sei”.',
+          : 'Você respondeu “Não sei” sobre o frete. A estimativa ilustrativa não presume que o débito real seja zero.',
   });
   return checks;
 }
