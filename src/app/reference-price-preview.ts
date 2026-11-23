@@ -7,8 +7,10 @@ import { acceptHypotheses, scenarioPrograms } from './ux-v3';
 import { parseBrazilianMoney } from '../engine/decimal';
 
 export interface ReferencePricePreview {
-  lower: string;
-  upper: string;
+  lower: string | null;
+  upper: string | null;
+  unreachableScenarios: number;
+  searchEnd: string;
   returnsUnconfirmed: boolean;
   searchStart: string;
   hypotheticalConditions: string[];
@@ -75,13 +77,15 @@ export function referencePricePreview(draft: CalculatorDraft, tables: readonly S
     : table && vol.date === text(draft, 'date') && vol.threshold === table.cpf.volumeThreshold ? vol.answer : 'unknown';
   const volumeUncertain = shopee && seller === 'CPF' && !!table &&
     (volume === 'unknown' || (volume === 'equal' && table.cpf.thresholdInclusive === null)) && fields['shopee:cpf-extra:manual'] !== true;
-  if (volumeUncertain) hypotheticalConditions.push('Volume CPF desconhecido ou incidência no limite não confirmada: cenários com e sem o adicional documentado');
+  if (volumeUncertain) hypotheticalConditions.push('Volume de pedidos desconhecido ou incidência no limite não confirmada: cenários com e sem o adicional CPF documentado');
   const returnsUnknown = shopee && fields.returns === 'unknown';
   const highlightUnknown = shopee && fields.highlight === 'unknown';
   if (highlightUnknown) hypotheticalConditions.push('Campanha de Destaque: cenários com e sem a cobrança documentada');
   const cases = returnsUnknown || highlightUnknown || volumeUncertain ? [false, true] : [false];
   const prices: string[] = [];
   let minimumStart: string | null = null;
+  let maximumEnd: string | null = null;
+  let unreachableScenarios = 0;
   try {
     for (const high of cases) {
       let illustration = structuredClone(baseline);
@@ -99,13 +103,16 @@ export function referencePricePreview(draft: CalculatorDraft, tables: readonly S
       illustration.fields.price = text(illustration, 'maxPrice');
       const calculation = calculateWorkspace(illustration, tables);
       const solution = calculation.solution;
-      if (!solution || solution.status !== 'found' || solution.result.status !== 'complete') return null;
-      prices.push(solution.unitPrice);
       minimumStart = calculation.searchRange?.min ?? null;
+      maximumEnd = calculation.searchRange?.max ?? null;
+      if (!solution || solution.status === 'partial') return null;
+      if (solution.status === 'not-found') { unreachableScenarios++; continue; }
+      if (solution.result.status !== 'complete') return null;
+      prices.push(solution.unitPrice);
     }
     const sorted = prices.sort((a, b) => Number(a) - Number(b));
-    if (!sorted[0] || !sorted.at(-1) || !minimumStart) return null;
-    return { lower: sorted[0], upper: sorted.at(-1)!, returnsUnconfirmed: returnsUnknown, searchStart: minimumStart, hypotheticalConditions, excludedActivePrograms };
+    if (!minimumStart || !maximumEnd) return null;
+    return { lower: sorted[0] ?? null, upper: sorted.at(-1) ?? null, unreachableScenarios, searchEnd: maximumEnd, returnsUnconfirmed: returnsUnknown, searchStart: minimumStart, hypotheticalConditions, excludedActivePrograms };
   } catch {
     return null;
   }
