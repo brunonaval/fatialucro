@@ -10,12 +10,14 @@ import { bundledTables } from '../marketplaces/catalogs/bundled';
 import type { ShopeeTable } from '../marketplaces/catalogs/types';
 import type { ImportedPlate, PrintImport } from '../importers';
 import { applyPlate, restoreProfile } from './model';
+import { profileSignature } from './ux-v3';
 
 export const initialExperience = (): ExperienceState => ({ version: 2, entry: 'none', intent: 'cost', mode: 'simple', stage: 'print', filament: { mode: 'spool', amount: '', netGrams: '' }, packaging: { mode: 'unit', amount: '', units: '' }, machineIncluded: true, wearIncluded: false, labor: 'excluded', packagingIncluded: false, extrasIncluded: false, saleUnit: 'piece', partsPerKit: '', shipping: 'unknown', volume: { answer: 'unknown', threshold: null, date: '' } });
 export function newCalculationDraft(now = new Date()): CalculatorDraft {
   const draft = defaultDraft(now);
   for (const key of ['price', 'quantity', 'pieces', 'grams', 'filament', 'hours', 'machine', 'watts', 'kwh', 'materialName', 'printerName', 'targetProfit', 'targetMargin', 'comparison', 'printerLife', 'printerPurchase', 'laborMinutes', 'laborHour', 'maintenance', 'depreciation', 'consumables', 'failure', 'packagingUnit', 'packagingOrder']) draft.fields[key] = '';
-  return { ...draft, ux: initialExperience() };
+  draft.fields.basis = 'unit';
+  return { ...draft, ux: { ...initialExperience(), machineIncluded: false, packagingDecision: 'unknown' } };
 }
 export function exampleDraft(): CalculatorDraft {
   const draft = defaultDraft();
@@ -26,16 +28,31 @@ export function withExperience(draft: CalculatorDraft): CalculatorDraft & { ux: 
   if (draft.fields.shippingConfirmed === true) {
     try { shipping = new D(numeric(text(draft, 'shipping'), 'Frete')).isZero() ? 'no' : 'yes'; } catch { /* An incomplete legacy draft must remain editable. */ }
   }
-  return { ...draft, ux: draft.ux ?? { ...initialExperience(), entry: 'manual', intent: 'sale', filament: { mode: 'kg', amount: '', netGrams: '' }, wearIncluded: true, labor: 'paid', packagingIncluded: true, extrasIncluded: true, shipping } };
+  const ux = draft.ux ?? { ...initialExperience(), entry: 'manual' as const, intent: 'sale' as const, filament: { mode: 'kg' as const, amount: '', netGrams: '' }, wearIncluded: true, labor: 'paid' as const, packagingIncluded: true, extrasIncluded: true, shipping };
+  return { ...draft, ux: ux.intent === 'cost' && ux.stage === 'sale' ? { ...ux, stage: 'costs' } : ux };
 }
 export function applyImportedPlate(draft: CalculatorDraft, data: PrintImport, plate: ImportedPlate): CalculatorDraft {
   const updated = applyPlate(draft, plate); const ux = withExperience(draft).ux;
   return { ...updated, ux: { ...ux, entry: 'import', stage: 'print', filament: { mode: 'spool', amount: '', netGrams: '' }, origin: { fileName: data.fileName, printer: data.printer, material: data.material, plateId: plate.id, plateName: plate.name, plateCount: data.plates.length, grams: plate.grams, seconds: plate.seconds, pieces: plate.pieces, warnings: data.warnings, materials: plate.materials } } };
 }
-export function applyProfile(draft: CalculatorDraft, saved: CalculatorDraft, kind: 'filament' | 'printer' | 'production' | 'marketplace'): CalculatorDraft {
+export function validateReusableProfile(draft: CalculatorDraft, kind: 'filament' | 'printer') {
+  const ux = withExperience(draft).ux;
+  if (kind === 'filament') {
+    if (ux.filament.mode === 'spool') spoolRates(ux.filament.amount, ux.filament.netGrams);
+    else money(numeric(text(draft, 'filament'), 'Preço por kg'));
+  } else {
+    if (!ux.machineIncluded) throw new Error('Para salvar ou aplicar uma impressora, informe seu custo por hora ou seus componentes. Você pode continuar calculando sem perfil.');
+    if (draft.fields.machineMode === 'all-in') decimal(numeric(text(draft, 'machine'), 'Custo completo por hora'));
+    else { decimal(numeric(text(draft, 'watts'), 'Potência')); decimal(numeric(text(draft, 'kwh'), 'Preço da energia')); if (ux.wearIncluded) { decimal(numeric(text(draft, 'maintenance'), 'Manutenção')); decimal(numeric(text(draft, 'depreciation'), 'Depreciação')); } }
+  }
+}
+export function applyProfile(draft: CalculatorDraft, saved: CalculatorDraft, kind: 'filament' | 'printer' | 'production' | 'marketplace', name?: string): CalculatorDraft {
+  if (kind === 'filament' || kind === 'printer') validateReusableProfile(saved, kind);
   const result = restoreProfile(draft, saved, kind); const ux = withExperience(draft).ux;
   const profile = withExperience(saved).ux;
-  return { ...result, ux: { ...ux, ...(kind === 'filament' || kind === 'production' ? { filament: structuredClone(profile.filament) } : {}), ...(kind === 'printer' || kind === 'production' ? { machineIncluded: profile.machineIncluded, wearIncluded: profile.wearIncluded } : {}), ...(kind === 'production' ? { packaging: structuredClone(profile.packaging), packagingIncluded: profile.packagingIncluded, labor: profile.labor, extrasIncluded: profile.extrasIncluded } : {}) } };
+  const updated = { ...result, ux: { ...ux, ...(kind === 'filament' || kind === 'production' ? { filament: structuredClone(profile.filament) } : {}), ...(kind === 'printer' || kind === 'production' ? { machineIncluded: profile.machineIncluded, wearIncluded: profile.wearIncluded } : {}), ...(kind === 'production' ? { packaging: structuredClone(profile.packaging), packagingIncluded: profile.packagingIncluded, ...(profile.packagingDecision ? { packagingDecision: profile.packagingDecision } : {}), labor: profile.labor, extrasIncluded: profile.extrasIncluded } : {}) } };
+  if (kind === 'filament' || kind === 'printer') updated.ux.profileOrigins = { ...ux.profileOrigins, [kind]: { name: name ?? (text(saved, kind === 'filament' ? 'materialName' : 'printerName') || 'Perfil salvo'), signature: profileSignature(updated, kind) } };
+  return updated;
 }
 export function spoolRates(amount: string, netGrams: string) {
   const paid = money(amount.replace(',', '.')); const grams = decimal(numeric(netGrams, 'Peso líquido'));

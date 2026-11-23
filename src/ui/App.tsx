@@ -17,7 +17,7 @@ import { FormContext } from './Fields';
 import { ExperienceContext } from './ExperienceContext';
 import { PrintImport } from './PrintImport';
 import { PrintStep } from './PrintStep';
-import { FilamentFields, OptionalCosts, PrinterFields } from './CostFields';
+import { FilamentFields, OptionalCosts, PackagingFields, PrinterFields } from './CostFields';
 import { SaleStep } from './SaleStep';
 import { ExperienceResult } from './ExperienceResult';
 import { ProductLibrary } from './ProductLibrary';
@@ -27,10 +27,13 @@ import { CatalogManager } from './CatalogManager';
 import { BackupPanel } from './BackupPanel';
 import { useAutomaticCalculation } from './useAutomaticCalculation';
 import { savedLabels } from './ProfileSelect';
+import { FinancialSummary } from './FinancialSummary';
+import { StoreSettings } from './StoreSettings';
+import { CalculationNavigation, StageActions } from './CalculationNavigation';
+import { applyFinalPrice, beginSale, changeScenarioDate } from '../app/ux-v3';
 import './style.css';
 
 type Page = 'calculate' | 'products' | 'settings';
-const stages = [['print', 'Impressão'], ['costs', 'Custos'], ['sale', 'Venda'], ['result', 'Resultado']] as const;
 
 export function App() {
   const [draft, setDraft] = useState(() => newCalculationDraft()); const current = withExperience(draft); const ux = current.ux;
@@ -41,6 +44,7 @@ export function App() {
   const [catalog, setCatalog] = useState<ValidatedPackage>({ manifest: bundledManifest, tables: bundledTables, package: bundledPackage });
   const repository = useRef<LocalRepository | null>(null); const workingDraft = useRef(draft); workingDraft.current = draft;
   const automatic = useAutomaticCalculation(current, catalog.tables, ready && page === 'calculate' && ux.entry !== 'none');
+  const focusTarget = useRef<string | null>(null);
   const realEntries = entries.filter(entry => !entry.deletedAt); const example = ux.entry === 'example';
   const resultKey = `${calculationSignature(current)}|${text(current, 'productName')}`;
 
@@ -72,14 +76,18 @@ export function App() {
   }, []);
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
   useEffect(() => {
+    const id = focusTarget.current ?? (page === 'calculate' && ux.entry !== 'none' ? `${ux.stage}-step` : 'workspace-content'); focusTarget.current = null;
+    const node = document.getElementById(id); if (node) { node.setAttribute('tabindex', '-1'); node.focus({ preventScroll: true }); }
+  }, [page, ux.stage, ux.entry]);
+  useEffect(() => {
     if (!ready || !repository.current || ux.entry === 'none' || example) return;
     let active = true; const repo = repository.current; setDraftStatus('Alterações aguardando salvamento…');
-    const timer = setTimeout(() => { void repo.saveSetting('draft-v2', draft).then(() => { if (active) setDraftStatus('Rascunho salvo neste dispositivo'); }).catch(() => { if (active) setDraftStatus('Rascunho não salvo. Seus dados continuam no formulário.'); }); }, 700);
+    const timer = setTimeout(() => { void repo.saveSetting('draft-v2', draft).then(() => { if (active) setDraftStatus('Salvo neste dispositivo'); }).catch(() => { if (active) setDraftStatus('Não foi possível salvar o rascunho. Seus dados continuam no formulário.'); }); }, 700);
     return () => { active = false; clearTimeout(timer); };
   }, [draft, ready, ux.entry, example]);
 
   function update(next: CalculatorDraft) { setDraft(withExperience(next)); }
-  function setField(name: string, value: string | boolean) { if (current.fields[name] !== value) update({ ...current, fields: { ...current.fields, [name]: value } }); }
+  function setField(name: string, value: string | boolean) { if (current.fields[name] !== value) update(name === 'date' ? changeScenarioDate(current, String(value)) : { ...current, fields: { ...current.fields, [name]: value } }); }
   function setStage(stage: typeof ux.stage) { update({ ...current, ux: { ...ux, stage } }); }
   function repo() { if (!repository.current) throw new Error('Armazenamento local indisponível. Nada foi salvo.'); return repository.current; }
   async function refresh() { setEntries(await repo().list(true)); }
@@ -99,8 +107,10 @@ export function App() {
   async function exploreExample() { if (!await preserveDraft()) return; update(exampleDraft()); setEditing({}); setSavedKey(''); setPage('calculate'); setNotice('Exemplo fictício isolado. Nenhum custo da sua oficina foi substituído.'); }
   function useProfile(entry: SavedEntry, stage?: typeof ux.stage) {
     if (!['printer', 'filament', 'production', 'marketplace'].includes(entry.kind)) return;
-    const next = entry.id === 'workshop-production' ? applyRecurringCosts(current, entry.draft) : entry.kind === 'marketplace' ? applySavedStore(current, entry.draft, entry.updatedAt) : applyProfile(current, entry.draft, entry.kind as 'printer' | 'filament' | 'production');
-    update(stage ? { ...next, ux: { ...withExperience(next).ux, stage } } : next); setNotice(`${savedLabels[entry.kind]} aplicado somente aos campos correspondentes.`);
+    try {
+    const next = entry.id === 'workshop-production' ? applyRecurringCosts(current, entry.draft) : entry.kind === 'marketplace' ? applySavedStore(current, entry.draft, entry.updatedAt) : applyProfile(current, entry.draft, entry.kind as 'printer' | 'filament' | 'production', entry.name);
+    update(stage ? { ...next, ux: { ...withExperience(next).ux, ...(entry.kind === 'marketplace' ? { intent: 'sale' as const } : {}), stage } } : next); setNotice(`${savedLabels[entry.kind]} aplicado somente aos campos correspondentes.`);
+    } catch (error) { setNotice(error instanceof Error ? error.message : 'Perfil incompleto; valores atuais preservados.'); }
   }
   async function editRecord(entry: SavedEntry, duplicate: boolean) {
     if (!await preserveDraft()) return;
@@ -142,38 +152,50 @@ export function App() {
   async function exportBackup() {
     await mutate(async () => { const data = await repo().export(); const url = URL.createObjectURL(new Blob([data], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = `fatialucro-backup-${new Date().toISOString().slice(0, 10)}.json`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }, 'Backup local preparado. Guarde-o em um lugar privado.');
   }
+  function resolvePending(target: string) {
+    focusTarget.current = target;
+    if (ux.stage === 'sale') { document.getElementById(target)?.focus(); focusTarget.current = null; }
+    else update({ ...current, ux: { ...ux, intent: 'sale', stage: 'sale' } });
+  }
+  async function saveStoreDraft(value: CalculatorDraft) {
+    if (!['CPF', 'CNPJ'].includes(text(value, 'seller'))) throw new Error('Informe CPF ou CNPJ antes de salvar a loja.');
+    if (!await mutate(() => repo().save({ id: 'store-shopee', kind: 'marketplace', name: 'Minha loja Shopee', updatedAt: new Date().toISOString(), draft: structuredClone(value) }), 'Minha loja Shopee salva. Frete, volume e condições temporárias continuam próprios do cenário.')) throw new Error('Não foi possível salvar a loja.');
+  }
   function submit(event: FormEvent) { event.preventDefault(); automatic.runNow(); setStage('result'); }
   const show = (stage: typeof ux.stage) => ux.mode === 'advanced' || ux.stage === stage;
-  const stageIndex = stages.findIndex(([stage]) => stage === ux.stage);
-  return <FormContext value={{ draft: current, setField }}><ExperienceContext value={{ draft: current, update }}><main className="experience-app" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); setNotice("Solte o arquivo na área de importação ou use Selecionar arquivo."); }}>
+  return <FormContext value={{ draft: current, setField }}><ExperienceContext value={{ draft: current, update, financial: automatic.state }}><main className="experience-app" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); setNotice("Solte o arquivo na área de importação ou use Selecionar arquivo."); }}>
     <a className="skip-link" href="#workspace-content">Pular para o conteúdo</a>
-    <header><div><span className="eyebrow">Impressão 3D · custos claros · dados locais</span><h1>Fatia<span>Lucro</span></h1></div><div className="header-actions"><label className="theme-picker">Aparência<select value={theme} onChange={event => chooseTheme(event.target.value)}><option value="system">Sistema</option><option value="light">Claro</option><option value="dark">Escuro</option></select></label><button type="button" className="secondary" onClick={() => { void startNew(); }} disabled={!ready}>Nova impressão</button></div></header>
+    <header className="app-header"><div><h1>Fatia<span>Lucro</span></h1><p>Saiba quanto custa imprimir e quanto sobra na venda</p></div><button type="button" className="text-button" onClick={() => { void startNew(); }} disabled={!ready}>Nova impressão</button></header>
     <nav aria-label="Navegação principal">{([['calculate', 'Calcular'], ['products', 'Meus produtos'], ['settings', 'Configurações']] as const).map(([value, label]) => <button type="button" key={value} aria-current={page === value ? 'page' : undefined} className={page === value ? 'active' : 'secondary'} onClick={() => setPage(value)}>{label}</button>)}</nav>
     <div id="workspace-content" tabIndex={-1}>
       {notice && <p className="message" role="status">{notice}</p>}{!ready && <p className="empty-state" role="status">Carregando seus dados locais…</p>}
       {page === 'calculate' ? <>
-        {ux.entry === 'none' ? <section className="welcome"><span className="step-label">Comece sem cadastros obrigatórios</span><h2>Descubra o custo da sua impressão.<br />Depois, decida como vender.</h2><p>Importe uma placa fatiada ou informe os dados. Configurar sua oficina é opcional e pode ficar para depois.</p>
+        {ux.entry === 'none' ? <section className="welcome"><span className="step-label">Comece pela sua impressão</span><h2>Do arquivo ao custo.<br />Da venda ao lucro entendido.</h2><p>Importe um arquivo fatiado ou informe peso e tempo. Não precisa configurar tudo antes.</p>
           <PrintImport primary disabled={!ready} draft={current} onApply={update} />
-          <div className="start-alternatives"><button type="button" className="secondary" disabled={!ready} onClick={() => update({ ...current, ux: { ...ux, entry: 'manual', stage: 'print' } })}>Informar peso e tempo manualmente</button><button type="button" className="text-button" disabled={!ready} onClick={() => { void exploreExample(); }}>Explorar um exemplo fictício</button></div>
-          {recovery && <div className="recovery-card"><h3>Há um rascunho neste dispositivo</h3><p>{text(recovery, 'productName') || 'Impressão sem nome'} · a data e as entradas serão preservadas.</p><button type="button" className="secondary" onClick={() => { update(withExperience(recovery)); setRecovery(null); setEditing({}); setSavedKey(''); }}>Recuperar rascunho</button></div>}
+          <div className="start-alternatives"><button type="button" className="secondary" disabled={!ready} onClick={() => update({ ...current, ux: { ...ux, entry: 'manual', stage: 'print' } })}>Preencher manualmente — peso e tempo</button><button type="button" className="text-button" disabled={!ready} onClick={() => { void exploreExample(); }}>Experimentar com um exemplo fictício</button></div>
+          {recovery && <div className="recovery-card"><h3>Há um rascunho neste dispositivo</h3><p>{text(recovery, 'productName') || 'Impressão sem nome'} · a data e as entradas serão preservadas.</p><button type="button" className="secondary" onClick={() => { update(withExperience(recovery)); setRecovery(null); setEditing({}); setSavedKey(''); }}>Continuar de onde parei</button></div>}
           <button type="button" className="text-button" onClick={() => { setPage('settings'); setShowWorkshop(true); }}>Configurar minha oficina (opcional)</button>
         </section> : <>
           {example && <div className="example-banner"><strong>Exemplo fictício</strong><span>Não são os custos da sua oficina. Não será salvo como dado real.</span><button type="button" className="secondary" onClick={() => { void startNew(); }}>Começar com meus dados</button></div>}
-          <div className="workspace-toolbar"><span className="draft-status" role="status">{example ? 'Demonstração isolada' : draftStatus || 'Seus dados ficam neste dispositivo'}</span><button type="button" className="text-button" aria-pressed={ux.mode === 'advanced'} onClick={chooseMode}>{ux.mode === 'simple' ? 'Abrir modo avançado' : 'Voltar ao modo simples'}</button>{!example && <button type="button" className="text-button" disabled={busy} onClick={() => { void saveProduct(); }}>Guardar produto sem esperar o cálculo</button>}</div>
-          <nav className="step-nav" aria-label="Etapas do cálculo">{stages.map(([stage, label], index) => <button type="button" key={stage} className="secondary" aria-current={ux.stage === stage ? 'step' : undefined} onClick={() => setStage(stage)}><span aria-hidden="true">{index + 1}</span>{label}{stage === 'sale' && ux.intent === 'cost' ? ' (opcional)' : ''}</button>)}</nav>
+          <div className="workspace-toolbar"><span className="draft-status" role="status">{example ? 'Demonstração isolada' : draftStatus || 'Seus dados ficam neste dispositivo'}</span><details className="workspace-options"><summary>Opções do cálculo</summary><button type="button" className="text-button" aria-pressed={ux.mode === 'advanced'} onClick={chooseMode}>{ux.mode === 'simple' ? 'Abrir modo avançado' : 'Voltar ao modo simples'}</button>{!example && <button type="button" className="text-button" disabled={busy} onClick={() => { void saveProduct(); }}>Guardar produto sem esperar o cálculo</button>}</details></div>
+          <div className="calculation-layout"><div className="calculation-content">
+          <CalculationNavigation ux={ux} onStage={setStage} />
           <form onSubmit={submit} noValidate>
             {show('print') && <PrintStep />}
-            {show('costs') && <section id="costs-step"><div className="section-heading"><span className="step-label">Custos</span><h2>Quanto você gastou para produzir?</h2><p>Use seus valores ou escolha perfis salvos. Você pode calcular apenas material e energia.</p></div><FilamentFields entries={realEntries} onProfile={useProfile} /><PrinterFields entries={realEntries} onProfile={useProfile} /><OptionalCosts /></section>}
-            {show('sale') && <SaleStep tables={catalog.tables} onSaveShop={() => { void saveShop(); }} />}
-            {show('result') && <ExperienceResult tables={catalog.tables} state={automatic.state} onConfirm={() => setStage('sale')} onSave={() => { void saveResult(); }} saved={savedKey === resultKey} />}
-            {ux.mode === 'simple' && <div className="step-actions">{stageIndex > 0 && <button type="button" className="secondary" onClick={() => setStage(stages[stageIndex - 1]![0])}>← Voltar</button>}{stageIndex < 3 && <button type="button" onClick={() => setStage(stages[stageIndex + 1]![0])}>{ux.stage === 'sale' ? 'Ver resultado' : ux.stage === 'costs' && ux.intent === 'cost' ? 'Continuar: venda é opcional →' : 'Continuar →'}</button>}<button type="submit" className="text-button">Atualizar e ver resultado agora</button></div>}
-          </form>
+            {show('costs') && <section id="costs-step"><div className="section-heading"><span className="step-label">Custos</span><h2>Quanto custa fabricar esta peça?</h2><p>Use seus valores ou escolha perfis salvos. Você pode calcular apenas material e energia.</p></div><FilamentFields entries={realEntries} onProfile={useProfile} /><PrinterFields entries={realEntries} onProfile={useProfile} />{ux.intent === 'cost' && <PackagingFields />}<OptionalCosts /></section>}
+            {ux.intent === 'sale' && show('sale') && <SaleStep tables={catalog.tables} onSaveShop={() => { void saveShop(); }} />}
+            {show('result') && <ExperienceResult tables={catalog.tables} state={automatic.state} onConfirm={() => setStage('sale')} onResolve={resolvePending} onSell={() => update(beginSale(current))} onAdjustPrice={price => update(applyFinalPrice(current, price))} onSave={() => { void saveResult(); }} saved={savedKey === resultKey} />}
+            <StageActions ux={ux} onStage={setStage} />
+          </form></div><FinancialSummary draft={current} state={automatic.state} onResolve={resolvePending} /></div>
           <p className="automatic-note">O cálculo é atualizado automaticamente após uma pausa na digitação. Valores antigos ficam ocultos durante alterações ou erros.</p>
         </>}
       </> : page === 'products' ? <ProductLibrary entries={entries} busy={busy} onNew={() => { void startNew(); }} onEdit={(entry, duplicate) => { void editRecord(entry, duplicate); }} onTrash={entry => mutate(() => repo().trash(entry.id), 'Registro movido para a lixeira. Você pode restaurá-lo em Meus produtos.')} onRestore={entry => mutate(() => repo().restore(entry.id), 'Registro restaurado com seus dados e regras originais.')} /> : <div className="settings-area">
+        <section><h2>Aparência e modo de uso</h2><label>Aparência<select value={theme} onChange={event => chooseTheme(event.target.value)}><option value="system">Sistema</option><option value="light">Claro</option><option value="dark">Escuro</option></select></label><button type="button" className="secondary" aria-pressed={ux.mode === 'advanced'} onClick={chooseMode}>{ux.mode === 'simple' ? 'Abrir modo avançado' : 'Voltar ao modo simples'}</button><p>Os dois modos usam os mesmos dados e cálculos. O simples mostra uma decisão por vez.</p></section>
+        <StoreSettings saved={realEntries.find(entry => entry.id === 'store-shopee')} tables={catalog.tables} onSave={saveStoreDraft} />
         <section><span className="step-label">Configurações</span><h2>Organize sua oficina no seu ritmo</h2><p>Esses cadastros são reutilizáveis. Nenhuma etapa é obrigatória para começar um cálculo.</p><button type="button" onClick={() => setShowWorkshop(!showWorkshop)}>{showWorkshop ? 'Recolher assistente' : workshop ? 'Retomar configuração da oficina' : 'Configurar minha oficina'}</button></section>
         {showWorkshop && <WorkshopWizard initial={workshop} tables={catalog.tables} onSave={saveWorkshop} onApply={applyWorkshop} onProfile={saveProfile} />}
         <section><h2>Impressoras, filamentos e custos salvos</h2>{!realEntries.some(entry => ['printer', 'filament', 'production', 'marketplace'].includes(entry.kind)) && <div className="empty-state"><p>Ainda não há perfis. Você pode criá-los no assistente e continuar calculando sem terminar todas as etapas.</p></div>}{realEntries.filter(entry => ['printer', 'filament', 'production', 'marketplace'].includes(entry.kind)).map(entry => <article className="saved-row" key={entry.id}><div><strong>{entry.name}</strong><p>{savedLabels[entry.kind]}</p></div><div><button type="button" className="secondary" onClick={() => { useProfile(entry, ux.entry === 'none' ? undefined : entry.kind === 'marketplace' ? 'sale' : 'costs'); setPage('calculate'); }}>Usar no cálculo</button><button type="button" className="text-button" onClick={() => setProfileDelete(entry)}>Mover para lixeira…</button></div></article>)}{profileDelete && <div className="confirm-inline" role="alert"><p>Mover “{profileDelete.name}” para a lixeira? As simulações salvas conservam seus próprios custos.</p><button type="button" disabled={busy} onClick={async () => { if (await mutate(() => repo().trash(profileDelete.id), 'Perfil movido para a lixeira; pode ser restaurado em Meus produtos.')) setProfileDelete(null); }}>Confirmar</button><button type="button" className="secondary" onClick={() => setProfileDelete(null)}>Cancelar</button></div>}</section>
+        <section><h2>Ajuda rápida</h2><p>Importe uma placa fatiada ou preencha peso e tempo, informe o filamento e escolha os custos. Venda é opcional. Dados e arquivos permanecem locais; a consulta de tarifas só ocorre quando você solicita.</p><p>Exporte um backup antes de trocar instalação ou limpar dados. O backup inclui produtos, perfis e cálculos salvos, mas não o rascunho e as preferências.</p></section>
         <CatalogManager active={catalog} onApply={applyCatalog} /><BackupPanel busy={busy} onExport={() => { void exportBackup(); }} onImport={data => mutate(() => repo().import(data), 'Backup restaurado. Conflitos foram preservados como cópias, sem sobrescrever históricos.')} />
       </div>}
     </div><footer>FatiaLucro · gratuito e local. Estimativas baseadas nos custos e nas condições informadas. Sem conta ou telemetria obrigatória. Consulta de tarifas somente quando você solicitar.</footer>

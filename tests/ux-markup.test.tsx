@@ -48,7 +48,7 @@ describe('UX V2: semântica e comunicação do resultado em HTML estático', () 
   });
   it('seleção local tem botão nativo e rótulo associado; arrastar não é a única alternativa', () => {
     const html = renderToStaticMarkup(<PrintImport draft={realDraft()} onApply={() => {}} primary />);
-    expect(html).toContain('type="button"'); expect(html).toContain('Selecionar arquivo'); expect(html).toContain('.gcode.3mf'); expect(html).toContain('Nada é enviado');
+    expect(html).toContain('type="button"'); expect(html).toContain('selecionar arquivo'); expect(html).toContain('.gcode.3mf'); expect(html).toContain('Nada é enviado');
     const id = html.match(/<input[^>]*id="([^"]+)"/)?.[1]; expect(id).toBeTruthy(); expect(html).toContain(`for="${id}"`);
   });
 });

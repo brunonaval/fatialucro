@@ -4,20 +4,22 @@ Precificação local de impressão 3D, com custos de produção, simulações de
 
 ## Usar a calculadora
 
-A navegação é **Calcular / Meus produtos / Configurações**. O modo simples mostra **Impressão → Custos → Venda → Resultado**; o modo avançado usa os mesmos dados e cálculos.
+A navegação é **Calcular / Meus produtos / Configurações**. O modo simples começa em **Impressão → Custos → Resultado**, com Venda adicionada somente quando escolhida; o modo avançado usa os mesmos dados e cálculos.
 
-1. **Importar impressão 3D** permite selecionar ou arrastar uma placa fatiada Bambu Studio/OrcaSlicer (`.3mf`, inclusive `.gcode.3mf`) ou G-code textual compatível. Confira a origem, placa, impressora, materiais e ausências antes de **Usar esta placa**. **Informar peso e tempo manualmente** está disponível sem cadastro.
+1. **Importar impressão 3D** permite selecionar ou arrastar uma placa fatiada Bambu Studio/OrcaSlicer (`.3mf`, inclusive `.gcode.3mf`) ou G-code textual compatível. Confira a origem, placa, impressora, materiais e ausências antes de **Usar esta placa**. **Preencher manualmente — peso e tempo** está disponível sem cadastro.
 2. Confira as peças físicas produzidas, peso e tempo do lote ou de uma peça. A quantidade vendida é independente; kits indicam quantas peças equivalentes compõem uma unidade comercial. Múltiplas placas são calculadas separadamente, sem consolidação automática.
-3. Informe o valor pago pela bobina e seu peso líquido real, ou o preço por kg. Nenhuma bobina recebe 1 kg presumido. Escolha custo completo por hora ou energia/desgaste separados; também é possível calcular só material. Mão de obra é opcional, inclusive zero consciente. Embalagens aceitam custo unitário ou pacote dividido pela quantidade.
-4. Para conhecer somente os custos, não é necessário informar preço, quantidade vendida ou loja. Para simular uma venda, informe preço ou meta de lucro/margem; venda direta dispensa Shopee. CPF/CNPJ e adesões não são presumidos. Respostas permanentes da loja podem ser salvas; frete e volume pertencem ao cenário.
+3. Informe o valor pago pela bobina e seu peso líquido real, ou o preço por kg. A prévia mostra o custo de material já calculável. Nenhuma bobina recebe 1 kg presumido. Escolha custo completo por hora ou energia/desgaste separados; também é possível calcular só material. Mão de obra é opcional, inclusive zero consciente. Embalagens aceitam custo unitário ou pacote dividido pela quantidade.
+4. Para conhecer somente os custos, não é necessário informar preço, quantidade vendida ou loja. Use **Ver custo da impressão** para pular Venda; depois, **Simular uma venda com este custo** reaproveita os dados. Para simular uma venda, informe preço ou meta de lucro/margem; venda direta dispensa Shopee. CPF/CNPJ e adesões não são presumidos. O cadastro da loja pode ser salvo; somente adesões explicitamente contínuas atravessam datas. Campanhas/testes, frete, volume e hipóteses exigem confirmação adequada ao cenário.
 5. O recálculo é automático após uma pausa na digitação. Durante edição/erro, números antigos ficam ocultos. A busca retorna um mínimo matemático no intervalo, sem recomendação competitiva de mercado. **Para onde vai o dinheiro** e **Ver cálculo completo** explicam os valores e pendências.
 6. Dê um nome e salve produto/simulação em **Meus produtos**. Consulte o histórico com suas regras originais ou edite explicitamente uma nova revisão com regras atuais. É possível duplicar, confirmar exclusão para lixeira e recuperar. O rascunho real é salvo localmente e oferecido na próxima abertura.
 
-O primeiro cálculo começa **sem custos fictícios**. **Explorar um exemplo fictício** é uma demonstração isolada que não pode ser gravada como dado real. **Configurar minha oficina**, em Configurações, é opcional e retomável; impressora e filamento podem ser salvos sem terminar o assistente.
+O primeiro cálculo começa **sem custos fictícios**. **Experimentar com um exemplo fictício** é uma demonstração isolada que não pode ser gravada como dado real. **Configurar minha oficina**, em Configurações, é opcional e retomável; impressora e filamento podem ser salvos sem terminar o assistente.
 
 Novos cenários usam a **data local do computador**; históricos conservam a sua data. Moeda aceita `19,90` ou `19.90` e colagem como `R$ 1.234,56`; duração aceita `hh:mm:ss` ou horas decimais. Margem visual `20` significa 20%, com razão `0.20` no motor. Valores são strings decimais validadas; campos inválidos não são arredondados para parecer válidos.
 
-**Aparência** oferece claro, escuro ou sistema, com preferência local. Rótulos, foco visível e layout responsivo foram preparados; revisão visual, navegação real por teclado/zoom e conformidade integral de acessibilidade continuam pendentes. Veja a [matriz de requisitos e limitações da UX V2](docs/ux-v2.md).
+Em janelas largas, **Meu resumo** acompanha as etapas; em janelas menores, aparece após os campos. Custos conhecidos continuam visíveis quando ainda falta um dado da venda. Embalagem tem decisão própria, inclusive **Ainda não sei**, que bloqueia o lucro conclusivo da venda. Programas Shopee podem ser declarados em conjunto, sempre enumerados e vinculados à data. **Ver hipóteses** explica a referência documental antes do aceite específico.
+
+Em **Configurações**, **Aparência** oferece claro, escuro ou sistema, com preferência local. Rótulos, foco visível e layout responsivo foram preparados; revisão visual, navegação real por teclado/zoom e conformidade integral de acessibilidade continuam pendentes. Veja a [matriz de requisitos e homologação da UX V3](docs/ux-v3.md).
 
 ## Catálogos versionados
 
@@ -71,4 +73,4 @@ GitHub Actions executa validação leve em PR. Instalador Windows é opcional: e
 - `src-tauri`: shell e empacotamento Windows.
 - `tests`: regressões financeiras, importadores e IndexedDB em Node.
 
-[Revisão atual: experiência UX V2 e matriz](docs/ux-v2.md) · [Tarifas e UX anterior](docs/tariffs-and-ux.md) · [Integração anterior](docs/integrated-v01.md) · [Arquitetura](docs/architecture.md) · [Referências e licenças](docs/references.md).
+[Revisão atual: experiência UX V3 e matriz](docs/ux-v3.md) · [Experiência UX V2 anterior](docs/ux-v2.md) · [Tarifas e UX anterior](docs/tariffs-and-ux.md) · [Integração anterior](docs/integrated-v01.md) · [Arquitetura](docs/architecture.md) · [Referências e licenças](docs/references.md).

@@ -6,7 +6,7 @@ import { editableNumeric, formattedNumeric, normalizeNumeric, numericIssue } fro
 import { NumericInput } from '../src/ui/Fields';
 import { FinancialSummary } from '../src/ui/FinancialSummary';
 import { App } from '../src/ui/App';
-import { calculateWorkspace } from '../src/app/calculate';
+import { calculateExperience } from '../src/app/experience';
 import { defaultDraft } from '../src/app/model';
 
 describe('formatação decimal de campos e estrutura acessível sem navegador', () => {
@@ -31,14 +31,17 @@ describe('formatação decimal de campos e estrutura acessível sem navegador', 
   });
   it('estrutura principal tem navegação, tema e link de salto; IDs são únicos', () => {
     const html = renderToStaticMarkup(createElement(App));
-    for (const label of ['Pular para o conteúdo', 'Calcular', 'Meus produtos', 'Configurações', 'Aparência', 'Importar impressão 3D']) expect(html).toContain(label);
+    for (const label of ['Pular para o conteúdo', 'Calcular', 'Meus produtos', 'Configurações', 'Comece pela sua impressão', 'Importar impressão']) expect(html).toContain(label);
     expect(html).toContain('aria-current="page"'); const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(match => match[1]); expect(new Set(ids).size).toBe(ids.length);
   });
   it('resumo distingue ausência, custo parcial e prejuízo estimado', () => {
-    const empty = renderToStaticMarkup(createElement(FinancialSummary, { output: null, stale: false, busy: false })); expect(empty).toContain('primeiro cenário');
-    const draft = defaultDraft(); draft.fields.marketplace = 'shopee'; const output = calculateWorkspace(draft);
-    const partial = renderToStaticMarkup(createElement(FinancialSummary, { output, stale: false, busy: false })); expect(partial).toContain('Tarifas calculáveis'); expect(partial).toContain('O que falta confirmar'); expect(partial).toContain('Pendente');
-    draft.fields.marketplace = 'direct'; draft.fields.price = '1'; const loss = renderToStaticMarkup(createElement(FinancialSummary, { output: calculateWorkspace(draft), stale: true, busy: false })); expect(loss).toContain('is-loss'); expect(loss).toContain('Recalcule');
+    const draft = defaultDraft();
+    const empty = renderToStaticMarkup(createElement(FinancialSummary, { draft, state: { signature: 'empty', phase: 'waiting' } })); expect(empty).toContain('Valores antigos');
+    draft.fields.marketplace = 'shopee'; const output = calculateExperience(draft);
+    const partial = renderToStaticMarkup(createElement(FinancialSummary, { draft, state: { signature: 'partial', phase: 'ready', output } })); expect(partial).toContain('tarifas conhecidas'); expect(partial).toContain('Ainda não podemos determinar'); expect(partial).toContain('Pendente');
+    draft.fields.marketplace = 'direct'; draft.fields.price = '1';
+    const loss = renderToStaticMarkup(createElement(FinancialSummary, { draft, state: { signature: 'loss', phase: 'ready', output: calculateExperience(draft) } })); expect(loss).toContain('loss'); expect(loss).toContain('Prejuízo');
+
   });
   it('tokens de texto e estados preservam contraste WCAG AA nos dois temas', () => {
     const css = readFileSync(new URL('../src/ui/style.css', import.meta.url), 'utf8');

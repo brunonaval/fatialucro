@@ -2,6 +2,14 @@
 
 ## 0.1.0 — 22/11/2026
 
+Experiência UX V3 (mesma V0.1, sem release):
+
+- Resumo contextual em duas colunas/uma coluna, prévia de componentes calculáveis e mesma apresentação no resultado, sem fórmulas financeiras em React.
+- Fluxo direto Impressão → Custos → Resultado, venda opcional posterior, escolhas de máquina e embalagem visível com desconhecido preservado.
+- Duas intenções de venda, preço final explicitamente recalculado, programas Shopee agrupados por declaração datada e hipóteses amigáveis com aceites específicos.
+- Loja em Configurações com condições temporárias separadas, perfis vazios protegidos, legibilidade/foco/responsividade e auditoria sem três níveis de expansão.
+- IndexedDB v4 sem reescrever registros e testes da matriz A…T. [Relatório e matriz UX V3](docs/ux-v3.md). Homologação gráfica/Windows permanece pendente.
+
 Experiência UX V2 (mesma V0.1, sem release):
 
 - Abertura sem custos fictícios, importação/manual/exemplo isolado, oficina opcional e fluxo Impressão → Custos → Venda → Resultado.

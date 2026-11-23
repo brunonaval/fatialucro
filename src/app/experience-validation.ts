@@ -2,6 +2,14 @@ import type { ExperienceState } from './experience-types';
 export function validateExperience(value: unknown): asserts value is ExperienceState {
   if (!value || typeof value !== 'object') throw new Error('Rascunho de interface inválido.');
   const ux = value as ExperienceState;
+  if (ux.materialIncluded !== undefined && typeof ux.materialIncluded !== 'boolean') throw new Error('Seleção de material inválida.');
+  if (ux.packagingDecision !== undefined && !['include', 'exclude', 'unknown'].includes(ux.packagingDecision)) throw new Error('Seleção de embalagem inválida.');
+  const programNames = ['returns', 'highlight', 'ads', 'affiliates', 'advance'];
+  const names = (list: unknown, allowed: string[]) => Array.isArray(list) && list.length <= allowed.length && new Set(list).size === list.length && list.every(item => allowed.includes(item));
+  if (ux.programDeclaration && (!['none', 'some', 'unknown'].includes(ux.programDeclaration.answer) || typeof ux.programDeclaration.date !== 'string' || ux.programDeclaration.date.length > 10 || !names(ux.programDeclaration.programs, programNames))) throw new Error('Declaração de programas inválida.');
+  if (ux.persistentPrograms && !names(ux.persistentPrograms, programNames)) throw new Error('Adesões persistentes inválidas.');
+  if (ux.assumptionReview && (typeof ux.assumptionReview.date !== 'string' || ux.assumptionReview.date.length > 10 || typeof ux.assumptionReview.tableId !== 'string' || ux.assumptionReview.tableId.length > 100 || !names(ux.assumptionReview.accepted, ['validity', 'rounding', 'precedence']))) throw new Error('Revisão de hipóteses inválida.');
+  if (ux.profileOrigins) for (const [key, origin] of Object.entries(ux.profileOrigins)) if (!['filament', 'printer', 'store'].includes(key) || !origin || typeof origin.name !== 'string' || origin.name.length > 300 || typeof origin.signature !== 'string' || origin.signature.length > 12000) throw new Error('Origem de perfil inválida.');
   if (ux.version !== 2 || !['none', 'manual', 'import', 'example'].includes(ux.entry) || !['cost', 'sale'].includes(ux.intent) || !['simple', 'advanced'].includes(ux.mode) || !['print', 'costs', 'sale', 'result'].includes(ux.stage) || !['piece', 'kit'].includes(ux.saleUnit) || !['excluded', 'paid', 'zero'].includes(ux.labor)) throw new Error('Estado de interface incompatível.');
   if ([ux.machineIncluded, ux.wearIncluded, ux.packagingIncluded, ux.extrasIncluded].some(value => typeof value !== 'boolean') || typeof ux.partsPerKit !== 'string' || ux.partsPerKit.length > 20) throw new Error('Opções de custo inválidas.');
   if (!['unknown', 'yes', 'no'].includes(ux.shipping)) throw new Error('Estado de frete inválido.');

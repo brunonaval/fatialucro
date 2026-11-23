@@ -15,5 +15,11 @@ export interface ExperienceState {
   saleUnit: 'piece' | 'kit'; partsPerKit: string;
   shipping: 'unknown' | 'yes' | 'no';
   volume: { answer: 'above' | 'below' | 'equal' | 'unknown'; threshold: number | null; date: string };
+  materialIncluded?: boolean;
+  packagingDecision?: 'include' | 'exclude' | 'unknown';
+  programDeclaration?: { answer: 'none' | 'some' | 'unknown'; date: string; programs: string[] };
+  persistentPrograms?: string[];
+  assumptionReview?: { date: string; tableId: string; accepted: string[] };
+  profileOrigins?: Partial<Record<'filament' | 'printer' | 'store', { name: string; signature: string }>>;
   origin?: ImportOrigin;
 }

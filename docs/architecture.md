@@ -1,6 +1,6 @@
 # Arquitetura 0.1
 
-A composição atual da experiência, os estados de recálculo e a matriz de requisitos estão em [UX V2](ux-v2.md). O contrato abaixo permanece compartilhado.
+A composição atual da experiência, os estados de recálculo e a matriz de requisitos estão em [UX V3](ux-v3.md). O contrato abaixo permanece compartilhado.
 
 O núcleo TypeScript em `src/engine` é síncrono, determinístico e independente de React, Tauri, rede ou relógio do sistema. Ele recebe a data e o catálogo explicitamente. O adaptador Shopee em `src/marketplaces/shopee` não interfere na fabricação.
 
@@ -64,3 +64,5 @@ O instalador NSIS requer WebView2 já instalado (`webviewInstallMode = skip`), p
 ## Extensão
 
 Novos marketplaces fornecem `TariffCatalog`, fatos e seleções, reutilizando fabricação, demonstrativo e solver. Eventos de devolução, gastos publicitários por período, resgates, múltiplos SKUs e impostos precisarão de adaptadores com suas próprias bases e incidências. Não devem ser disfarçados de tarifa por item. O contrato serializável permite ampliar incidências e registrar lançamentos com hierarquia sem alterar o cálculo de fabricação.
+
+Na UX V3, `FinancialSummary` e `ExperienceResult` compartilham `FinancialMetrics`; o worker envia uma prévia calculada pelos componentes existentes da engine antes do resultado final. `cost-preview` não contém fórmulas financeiras próprias. Um envelope de geração antiga nunca é mostrado como atual. Embalagem desconhecida gera pendência na composição da venda; não modifica regras Shopee. Declarações e hipóteses têm escopo de data/tabela, com compatibilidade de registros anteriores.

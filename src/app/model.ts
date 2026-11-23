@@ -9,6 +9,8 @@ import type { ImportedPlate } from '../importers/types';
 import { bundledTables } from '../marketplaces/catalogs/bundled';
 import type { ShopeeTable } from '../marketplaces/catalogs/types';
 import { validateExperience } from './experience-validation';
+import { scenarioPrograms } from './ux-v3';
+import { selectTable } from '../marketplaces/catalogs/select';
 
 export const manualIds = ['shopee:cpf-extra', 'shopee:returns-protection', 'shopee:highlight', 'shopee:adsEasy', 'shopee:affiliates', 'shopee:cashAdvance'];
 const initialFields: Record<string, string | boolean> = {
@@ -51,14 +53,19 @@ export function buildManufacturing(draft: CalculatorDraft): ManufacturingInput {
   const value = (name: string) => numeric(t(name), ({ grams: 'Peso de filamento', hours: 'Tempo de impressão', machine: 'Custo da impressora' } as Record<string, string>)[name] ?? name);
   const cashValue = (name: string) => parseBrazilianMoney(t(name));
   const ux = draft.ux;
-  const purchase = !draft.materials.length && ux?.filament.mode === 'spool' ? { amount: parseBrazilianMoney(ux.filament.amount), netGrams: numeric(ux.filament.netGrams, 'Peso líquido da bobina') } : undefined;
+  const materialSelected = ux?.materialIncluded !== false;
+  if (materialSelected && !draft.materials.length && ux?.filament.mode === 'spool') {
+    if (!ux.filament.amount) throw new Error('Informe o preço pago pela bobina.');
+    if (!ux.filament.netGrams) throw new Error('Informe o peso líquido de filamento comprado, sem o carretel.');
+  }
+  const purchase = materialSelected && !draft.materials.length && ux?.filament.mode === 'spool' ? { amount: parseBrazilianMoney(ux.filament.amount), netGrams: numeric(ux.filament.netGrams, 'Peso líquido da bobina') } : undefined;
   if (!['all-in', 'detailed'].includes(t('machineMode')) || !['unit', 'batch'].includes(t('basis'))) throw new Error('Modo de fabricação inválido.');
   return {
     basis: t('basis') as 'unit' | 'batch', piecesPerBatch: t('basis') === 'batch' ? integer(t('pieces'), 'Peças produzidas') : 1,
-    grams: draft.materials.length ? '0' : value('grams'), filamentPerKg: draft.materials.length || purchase ? '0' : cashValue('filament'), printHours: ux?.machineIncluded === false ? '0' : value('hours'),
+    grams: !materialSelected || draft.materials.length ? '0' : value('grams'), filamentPerKg: !materialSelected || draft.materials.length || purchase ? '0' : cashValue('filament'), printHours: ux?.machineIncluded === false ? '0' : value('hours'),
     ...(purchase && !draft.materials.length ? { filamentPurchase: purchase } : {}),
     ...(ux?.saleUnit === 'kit' && ux.intent === 'sale' ? { partsPerUnit: integer(ux.partsPerKit, 'Peças dentro de cada kit') } : {}),
-    ...(draft.materials.length ? { materials: draft.materials.map(item => ({ id: item.id, name: item.name, grams: numeric(item.grams, item.name), pricePerKg: item.purchase ? '0' : parseBrazilianMoney(item.pricePerKg), ...(item.purchase ? { purchase: { amount: parseBrazilianMoney(item.purchase.amount), netGrams: numeric(item.purchase.netGrams, 'Peso líquido') } } : {}) })) } : {}),
+    ...(materialSelected && draft.materials.length ? { materials: draft.materials.map(item => ({ id: item.id, name: item.name, grams: numeric(item.grams, item.name), pricePerKg: item.purchase ? '0' : parseBrazilianMoney(item.pricePerKg), ...(item.purchase ? { purchase: { amount: parseBrazilianMoney(item.purchase.amount), netGrams: numeric(item.purchase.netGrams, 'Peso líquido') } } : {}) })) } : {}),
     machine: ux?.machineIncluded === false ? { mode: 'all-in', perHour: '0' } : t('machineMode') === 'all-in' ? { mode: 'all-in', perHour: value('machine') } : { mode: 'detailed', watts: value('watts'), energyPerKwh: value('kwh'), maintenancePerHour: ux && !ux.wearIncluded ? '0' : value('maintenance'), depreciationPerHour: ux && !ux.wearIncluded ? '0' : value('depreciation') },
     laborMinutes: ux?.labor === 'excluded' || ux?.labor === 'zero' ? '0' : value('laborMinutes'), laborPerHour: ux?.labor === 'excluded' || ux?.labor === 'zero' ? '0' : cashValue('laborHour'),
     consumablesPerUnit: ux && !ux.extrasIncluded ? '0' : cashValue('consumables'), failureReservePerUnit: ux && !ux.extrasIncluded ? '0' : cashValue('failure'),
@@ -71,6 +78,8 @@ export function packagingInput(draft: CalculatorDraft): Pick<SaleInput, 'packagi
 }
 
 export function buildScenario(draft: CalculatorDraft, tables: readonly ShopeeTable[] = bundledTables) {
+  const programFields = scenarioPrograms(draft);
+  draft = { ...draft, fields: programFields };
   const t = (name: string) => text(draft, name);
   const labels: Record<string, string> = { grams: 'Peso de filamento', hours: 'Tempo de impressão', machine: 'Custo completo por hora', filament: 'Preço por kg', watts: 'Potência média', kwh: 'Preço da energia', maintenance: 'Manutenção por hora', depreciation: 'Depreciação por hora', laborMinutes: 'Trabalho manual', laborHour: 'Valor da mão de obra', price: 'Preço de venda', packagingUnit: 'Embalagem individual', packagingOrder: 'Embalagem do pedido', discount: 'Desconto do vendedor', shipping: 'Frete líquido', consumables: 'Consumíveis', failure: 'Reserva de falhas', manualFixed: 'Tarifa fixa personalizada', manualRate: 'Comissão percentual personalizada' };
   const m = (name: string) => { try { return parseBrazilianMoney(t(name)); } catch { throw new Error(`${labels[name] ?? 'Valor personalizado'}: informe um valor em reais, com até duas casas decimais.`); } };
@@ -118,9 +127,12 @@ export function buildScenario(draft: CalculatorDraft, tables: readonly ShopeeTab
     ...packagingInput(draft), sellerDiscount: m('discount'), sellerShipping: t('marketplace') === 'shopee' && draft.ux?.shipping === 'no' ? '0.00' : m('shipping'),
     otherOperatingCosts: new D(expenseBreakdown(draft).other).plus(expenseBreakdown(draft).advertising).toFixed(2),
     selections: t('marketplace') === 'shopee' ? shopeeSelections(context) : {}, facts: t('marketplace') === 'shopee' ? shopeeFacts(context) : {},
-    acceptedAssumptions: { validity: yes('acceptValidity'), rounding: yes('acceptRounding'), precedence: yes('acceptPrecedence') },
+    acceptedAssumptions: Object.fromEntries((['validity', 'rounding', 'precedence'] as const).map(kind => [kind, yes(`accept${kind[0]!.toUpperCase()}${kind.slice(1)}`) && (!draft.ux?.assumptionReview || (draft.ux.assumptionReview.date === t('date') && draft.ux.assumptionReview.tableId === selectTable(t('date'), tables)?.table.id && draft.ux.assumptionReview.accepted.includes(kind)))])),
   };
-  const catalogAt = (price: string) => t('marketplace') === 'shopee' ? createShopeeCatalog(context, price, input.sellerDiscount, input.date, overrides, tables) : directSaleCatalog();
+  const catalogAt = (price: string) => {
+    const catalog = t('marketplace') === 'shopee' ? createShopeeCatalog(context, price, input.sellerDiscount, input.date, overrides, tables) : directSaleCatalog();
+    return draft.ux?.packagingDecision === 'unknown' ? { ...catalog, pending: [...(catalog.pending ?? []), { id: 'cost:packaging', message: 'Confirme a embalagem: informe seu custo ou escolha explicitamente não incluir neste cálculo. Embalagem desconhecida não foi considerada zero.' }] } : catalog;
+  };
   return { input, catalogAt };
 }
 

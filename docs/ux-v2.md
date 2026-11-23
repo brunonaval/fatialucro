@@ -1,5 +1,7 @@
 # Experiência UX V2 — revisão integrada da V0.1
 
+Relatório histórico. A experiência atual e sua matriz estão em [UX V3](ux-v3.md).
+
 Esta revisão permanece na versão 0.1.0 e no PR #1, sem merge, release ou publicação da aplicação na `main`. “V2” identifica a experiência solicitada. Não houve execução gráfica, navegador real, instalador ou compilação Windows nesta etapa.
 
 ## O que mudou e por quê

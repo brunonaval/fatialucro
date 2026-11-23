@@ -20,10 +20,10 @@ describe('preferências, loja e cache offline', () => {
     const draft = defaultDraft(new Date(2027, 0, 2, 0, 15));
     expect(draft.fields).toMatchObject({ date: '2027-01-02', manualFrom: '2027-01-02', manualUntil: '2027-01-02' });
   });
-  it('reutiliza CPF e adesões; frete não vira confirmação permanente e volume antigo fica em aberto', () => {
+  it('reutiliza CPF sem perpetuar adesões temporárias; frete/volume/aceites atuais são preservados', () => {
     const store = defaultDraft(new Date(2026, 10, 22)); Object.assign(store.fields, { marketplace: 'shopee', seller: 'CPF', highlight: 'active', returns: 'trial', shippingConfirmed: true, orders: '500', acceptValidity: true });
     const current = defaultDraft(new Date(2026, 10, 23)); current.fields.price = '35';
-    expect(applySavedStore(current, store, new Date(2026, 10, 22, 10).toISOString()).fields).toMatchObject({ seller: 'CPF', highlight: 'active', returns: 'trial', price: '35', date: '2026-11-23', shippingConfirmed: false, orders: '', acceptValidity: true });
+    expect(applySavedStore(current, store, new Date(2026, 10, 22, 10).toISOString()).fields).toMatchObject({ seller: 'CPF', highlight: 'unknown', returns: 'unknown', price: '35', date: '2026-11-23', shippingConfirmed: false, orders: '', acceptValidity: false });
     expect(applySavedStore(store, store, new Date(2026, 10, 22, 10).toISOString()).fields.orders).toBe('500');
   });
   it('tema claro/escuro/sistema e loja permanecem depois de fechar e reabrir o banco', async () => {

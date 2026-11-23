@@ -64,7 +64,7 @@ export class LocalRepository {
   private open(): Promise<IDBDatabase> {
     if (!this.connection) this.connection = new Promise((resolve, reject) => {
       let blocked = false;
-      const request = this.factory.open(this.name, 3);
+      const request = this.factory.open(this.name, 4);
       request.onupgradeneeded = () => {
         if (!request.result.objectStoreNames.contains('entries')) request.result.createObjectStore('entries', { keyPath: 'id' });
         if (!request.result.objectStoreNames.contains('settings')) request.result.createObjectStore('settings', { keyPath: 'id' });

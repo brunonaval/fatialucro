@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { D } from '../engine/decimal';
 import type { Formula, PricingResult, PriceSolution, TariffCatalog } from '../engine';
 
@@ -14,7 +15,7 @@ function formulaText(formula: Formula | null): string {
   return formula.bands.map(band => `${currency(band.from)} até ${band.to === null ? 'sem teto' : currency(band.to)} (exclusive): ${formulaText(band.formula)}`).join('; ');
 }
 
-export function ResultView({ result, solution, stale, catalog, expenses }: { result: PricingResult; solution: PriceSolution | null; stale: boolean; catalog: TariffCatalog; expenses: { other: string; advertising: string } }) {
+export function ResultView({ result, solution, stale, catalog, expenses, flat = false }: { result: PricingResult; solution: PriceSolution | null; stale: boolean; catalog: TariffCatalog; expenses: { other: string; advertising: string }; flat?: boolean }) {
   const unresolved = catalog.rules.filter(rule => !result.fees.some(line => line.rule.id === rule.id) && !result.excluded.some(line => line.id === rule.id));
   return <section aria-live="polite"><h2>{result.status === 'partial' ? 'Demonstrativo parcial' : result.confidence === 'provisional' ? 'Simulação provisória' : 'Resultado calculado'}</h2>
     {stale && <p className="notice">Entradas alteradas. Recalcule para atualizar o demonstrativo abaixo.</p>}
@@ -40,27 +41,31 @@ export function ResultView({ result, solution, stale, catalog, expenses }: { res
       <dt>Markup (lucro / custos operacionais)</dt><dd>{percent(result.markup)}</dd>
     </dl>
     {!!result.pending.length && <div className="notice"><h3>Pendências que impedem concluir o resultado</h3><ul>{result.pending.map((item, index) => <li key={`${item.id}-${index}`}>{item.message}</li>)}</ul></div>}
-    {!!result.assumptions.length && <details open><summary>Premissas e valores personalizados</summary><ul>{result.assumptions.map((item, index) => <li key={`${item.id}-${index}`}>{item.accepted ? 'Usada na simulação' : 'Ainda não aceita'}: {item.message}</li>)}</ul></details>}
-    <details><summary>Custos de fabricação</summary><p>Em lotes, cada componente é arredondado no lote e rateado pelas peças produzidas. O total do pedido preserva as frações do rateio antes de arredondar. O valor unitário exibido pode não multiplicar exatamente para o total.</p><div className="table-scroll" tabIndex={0} role="region" aria-label="Tabela do demonstrativo financeiro"><table><thead><tr><th>Componente</th><th>Fórmula</th><th>Por unidade comercial</th><th>Total</th></tr></thead><tbody>
+    {!!result.assumptions.length && <AuditBlock flat={flat} title={<>Premissas e valores personalizados</>}><ul>{result.assumptions.map((item, index) => <li key={`${item.id}-${index}`}>{item.accepted ? 'Usada na simulação' : 'Ainda não aceita'}: {item.message}</li>)}</ul></AuditBlock>}
+    <AuditBlock flat={flat} title={<>Custos de fabricação</>}><p>Em lotes, cada componente é arredondado no lote e rateado pelas peças produzidas. O total do pedido preserva as frações do rateio antes de arredondar. O valor unitário exibido pode não multiplicar exatamente para o total.</p><div className="table-scroll" tabIndex={0} role="region" aria-label="Tabela do demonstrativo financeiro"><table><thead><tr><th>Componente</th><th>Fórmula</th><th>Por unidade comercial</th><th>Total</th></tr></thead><tbody>
       {result.manufacturing.lines.map(line => <tr key={line.id}><td>{line.name}</td><td>{line.formula}<br />Antes de arredondar: {line.rawPerUnit}</td><td>{currency(line.perUnit)}</td><td>{currency(line.total)}</td></tr>)}
-    </tbody></table></div></details>
-    <h3>Taxas individualizadas</h3>{result.fees.map(line => <details key={line.rule.id}><summary>{line.rule.name}: total {currency(line.amount)} — incidência por {line.rule.scope === 'item' ? 'unidade' : 'pedido'} — {line.rule.evidence.verification === 'custom' ? 'personalizada' : 'documentada'}</summary>
+    </tbody></table></div></AuditBlock>
+    <h3>Taxas individualizadas</h3>{result.fees.map(line => <AuditBlock key={line.rule.id} flat={flat} title={<>{line.rule.name}: total {currency(line.amount)} — incidência por {line.rule.scope === 'item' ? 'unidade' : 'pedido'} — {line.rule.evidence.verification === 'custom' ? 'personalizada' : 'documentada'}</>}>
       <p>Identificador: {line.rule.id}; versão: {line.rule.version}; base: {line.rule.base === 'gross-sales' ? 'receita bruta' : 'receita após desconto do vendedor'}; {line.rule.requirement === 'mandatory' ? 'obrigatória' : line.rule.requirement === 'conditional' ? 'condicional' : 'opcional'}.</p>
       <p>Fórmula: {formulaText(line.resolvedFormula)}. Período: {line.rule.effectiveFrom ?? 'início não comprovado'} a {line.rule.effectiveUntil ?? 'fim não comprovado'}; origem: {line.rule.evidence.verification === 'custom' ? 'personalizada' : 'documental'}.</p>
       <p>{line.rule.evidence.reference}</p>
       {line.rule.override && <p>Substitui somente esta cobrança. Fórmula documental anterior: {formulaText(line.rule.override.originalFormula)}. Fonte anterior: {line.rule.override.originalEvidence.id}. O parâmetro personalizado não se torna uma tarifa oficial.</p>}
       <ul>{line.assessments.map((entry, index) => <li key={index}>Base {currency(entry.base)}; antes de arredondar {entry.rawAmount}; {entry.count} × {currency(entry.roundedPerOccurrence)} = {currency(entry.total)}</li>)}</ul>
       <ul>{line.rule.evidence.urls.map(url => <li key={url}><a href={url} target="_blank" rel="noreferrer">Documento oficial arquivado</a></li>)}</ul>
-    </details>)}
-    {unresolved.map(rule => <details key={rule.id}><summary>{rule.name}: valor pendente — {rule.requirement === 'mandatory' ? 'obrigatória' : rule.requirement === 'conditional' ? 'condicional' : 'opcional'}</summary>
+    </AuditBlock>)}
+    {unresolved.map(rule => <AuditBlock key={rule.id} flat={flat} title={<>{rule.name}: valor pendente — {rule.requirement === 'mandatory' ? 'obrigatória' : rule.requirement === 'conditional' ? 'condicional' : 'opcional'}</>}>
       <p>Fórmula: {formulaText(rule.formula)}; incidência por {rule.scope === 'item' ? 'unidade' : 'pedido'}; base {rule.base === 'gross-sales' ? 'receita bruta' : 'após desconto do vendedor'}. Não somada ao subtotal calculável enquanto houver indeterminação.</p>
       <p>{rule.evidence.reference}</p><ul>{rule.evidence.urls.map(url => <li key={url}><a href={url} target="_blank" rel="noreferrer">Documento de referência</a></li>)}</ul>
-    </details>)}
-    {!!result.excluded.length && <details><summary>Componentes não somados</summary><ul>{result.excluded.map(line => <li key={line.id}>{line.id}: {line.reason}</li>)}</ul></details>}
+    </AuditBlock>)}
+    {!!result.excluded.length && <AuditBlock flat={flat} title={<>Componentes não somados</>}><ul>{result.excluded.map(line => <li key={line.id}>{line.id}: {line.reason}</li>)}</ul></AuditBlock>}
     <ul>{result.warnings.map(message => <li key={message}>{message}</li>)}</ul>
     {solution && <aside><h3>Busca de preço</h3>{solution.status === 'found' ? <>
       <p>{solution.confidence === 'provisional' ? 'Preço mínimo provisório, válido apenas sob as premissas da busca' : 'Preço mínimo calculado no intervalo'}: {currency(solution.unitPrice)}; lucro simulado por pedido: {currency(solution.result.operatingProfit)}.</p>
-      <details><summary>Premissas consideradas em toda a busca</summary><ul>{solution.assumptions.map((item, index) => <li key={index}>{item.message}</li>)}</ul></details>
+      <AuditBlock flat={flat} title={<>Premissas consideradas em toda a busca</>}><ul>{solution.assumptions.map((item, index) => <li key={index}>{item.message}</li>)}</ul></AuditBlock>
     </> : solution.status === 'partial' ? <><p>Busca interrompida por cobrança indeterminada ou premissa não aceita. Ajuste o intervalo ou informe o parâmetro correspondente, sem ignorar regiões desconhecidas.</p><ul>{solution.pending.map((item, index) => <li key={index}>{item.message}</li>)}</ul></> : <p>Meta não alcançada no intervalo {solution.confidence === 'provisional' ? 'sob as premissas informadas' : 'calculado'}.</p>}<p>Preços examinados: {solution.examined}.</p></aside>}
   </section>;
+}
+
+function AuditBlock({ flat, title, children }: { flat: boolean; title: ReactNode; children: ReactNode }) {
+  return flat ? <div className="audit-block"><h3>{title}</h3>{children}</div> : <details><summary>{title}</summary>{children}</details>;
 }
