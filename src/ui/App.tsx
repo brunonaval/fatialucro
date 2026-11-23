@@ -143,6 +143,13 @@ export function App() {
     if (!repository.current) return true;
     try { await repository.current.saveSetting('draft-v2', value); setRecovery(value); return true; } catch { setNotice('Não foi possível preservar seu rascunho. O cálculo atual foi mantido.'); return false; }
   }
+  async function persistBeforeInstall(): Promise<void> {
+    const value = workingDraft.current;
+    if (value.ux?.entry === 'none' || value.ux?.entry === 'example') return;
+    if (!repository.current) throw new Error('O armazenamento local não está disponível.');
+    await repository.current.saveSetting('draft-v2', value);
+    setDraftStatus('Rascunho salvo antes da atualização.');
+  }
   async function startNew() {
     if (!await preserveDraft()) return; setStartGoal('profit');
     const fresh = workshopDefaults(newCalculationDraft(), realEntries); update({ ...fresh, ux: { ...withExperience(fresh).ux, mode: ux.mode } }); setEditing({}); setSavedKey(''); setValidationRequested(false); navigatePage('calculate'); setNotice('');
@@ -251,7 +258,7 @@ export function App() {
         </>}
       </> : page === 'products' ? <ProductLibrary entries={entries} busy={busy} onNew={() => { void startNew(); }} onEdit={(entry, duplicate) => { void editRecord(entry, duplicate); }} onTrash={entry => mutate(() => repo().trash(entry.id), 'Registro movido para a lixeira. Você pode restaurá-lo em Meus produtos.')} onRestore={entry => mutate(() => repo().restore(entry.id), 'Registro restaurado com seus dados e regras originais.')} /> : <div className="settings-area">
         <section><h2>Aparência</h2><label>Usar tema<select value={theme} onChange={event => chooseTheme(event.target.value)}><option value="system">Automático (Windows)</option><option value="light">Claro</option><option value="dark">Escuro</option></select></label><details className="settings-inline"><summary>Modo avançado (opcional)</summary><button type="button" className="secondary" aria-pressed={ux.mode === 'advanced'} onClick={chooseMode}>{ux.mode === 'simple' ? 'Mostrar configurações avançadas no cálculo' : 'Voltar ao modo simples'}</button></details></section>
-        <UpdatePanel />
+        <UpdatePanel beforeInstall={persistBeforeInstall} />
         <details className="settings-group"><summary>Minha loja Shopee — editar cadastro (opcional)</summary><StoreSettings saved={realEntries.find(entry => entry.id === 'store-shopee')} tables={catalog.tables} onSave={saveStoreDraft} /></details>
         <details className="settings-group" open={showWorkshop ? true : undefined}><summary>Configurar impressoras e custos da oficina (opcional)</summary><section><h2>Minha oficina</h2><p>Você pode calcular sem preencher esta configuração.</p><button type="button" onClick={() => setShowWorkshop(!showWorkshop)}>{showWorkshop ? 'Recolher assistente' : workshop ? 'Retomar configuração da oficina' : 'Configurar minha oficina'}</button></section>
         {showWorkshop && <WorkshopWizard initial={workshop} tables={catalog.tables} onSave={saveWorkshop} onApply={applyWorkshop} onProfile={saveProfile} />}

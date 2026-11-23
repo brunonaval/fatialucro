@@ -1,0 +1,38 @@
+name: Prepare updater dependency lockfiles (temporary QA)
+
+on:
+  push:
+    branches: [qa/updater-deps-20261123]
+
+permissions:
+  contents: write
+
+jobs:
+  lockfiles:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Install pinned NPM dependency metadata
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Install Rust stable
+        run: |
+          rustup default stable
+      - name: Update Cargo.lock for optional signed updater
+        run: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
+      - name: Commit generated lockfiles on QA branch only
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json src-tauri/Cargo.lock
+          if git diff --cached --quiet; then
+            echo 'No lockfile changes needed'
+            exit 0
+          fi
+          git commit -m "chore(lockfiles): resolve pinned Tauri updater dependencies"
+          git push origin HEAD:qa/updater-deps-20261123
