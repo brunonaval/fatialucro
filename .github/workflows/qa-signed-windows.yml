@@ -1,0 +1,73 @@
+name: Validate signed Windows updater (ephemeral QA key)
+
+on:
+  push:
+    branches: [qa/updater-windows-20261123]
+
+permissions:
+  contents: read
+
+jobs:
+  windows-signed-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install Rust stable (MSVC)
+        shell: pwsh
+        run: |
+          rustup default stable-msvc
+          rustup component add rustfmt clippy
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: signed-smoke-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: signed-smoke-
+      - run: npm ci
+      - run: npm run check
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+      - run: cargo clippy --locked --manifest-path src-tauri/Cargo.toml --features signed-updater --all-targets -- -D warnings
+      - name: Generate disposable signing key and release config (never upload either)
+        shell: pwsh
+        run: |
+          $key = Join-Path $env:RUNNER_TEMP 'fatialucro-qa-only.key'
+          $pass = [guid]::NewGuid().ToString('N')
+          $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = $pass
+          npm run tauri -- signer generate -w "$key" -p "$pass" --ci
+          if ($LASTEXITCODE -ne 0) { throw 'Ephemeral key generation failed.' }
+          $pub = Get-Content "$key.pub" -Raw
+          $config = @{
+            bundle = @{ createUpdaterArtifacts = $true }
+            plugins = @{ updater = @{
+              pubkey = $pub.Trim()
+              endpoints = @('https://github.com/brunonaval/fatialucro/releases/latest/download/latest.json')
+              requireSignedVersion = $true
+              windows = @{ installMode = 'passive' }
+            } }
+            app = @{ security = @{ capabilities = @(@{
+              identifier = 'signed-desktop'
+              windows = @('main')
+              permissions = @('core:default', 'updater:allow-check', 'updater:allow-download-and-install')
+            }) } }
+          }
+          $config | ConvertTo-Json -Depth 12 | Set-Content src-tauri/updater-release.conf.json -Encoding utf8
+          Write-Output "TAURI_SIGNING_PRIVATE_KEY=$key" >> $env:GITHUB_ENV
+          Write-Output "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$pass" >> $env:GITHUB_ENV
+      - name: Build updater-enabled NSIS installer (not distributed)
+        shell: pwsh
+        env:
+          VITE_FATIALUCRO_SIGNED_UPDATER: 'true'
+        run: |
+          npm run tauri -- build --features signed-updater --config src-tauri/updater-release.conf.json --ci -- --locked
+          if ($LASTEXITCODE -ne 0) { throw 'Signed Windows build failed.' }
+          $exe = @(Get-ChildItem 'src-tauri/target/release/bundle/nsis' -Filter '*-setup.exe')
+          $sig = @(Get-ChildItem 'src-tauri/target/release/bundle/nsis' -Filter '*.sig')
+          if ($exe.Count -lt 1 -or $sig.Count -lt 1) { throw 'Signed NSIS bundle or signature missing.' }
+          Write-Host 'Signed installer and updater signature created; not uploading.'
