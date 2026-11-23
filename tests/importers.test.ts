@@ -68,7 +68,7 @@ describe('importação local de metadados, sem fatiar geometria', () => {
     expect(parsed.plates).toEqual([]);
   });
   it('G-code de quatro slots mostra PLA uma vez e descarta pesos zero', () => {
-    const parsed = parseGcode('; filament_type = PLA;PLA;PLA;PLA\\n; filament used [g] = 22.31;0;0;0\\n; TIME:3600');
+    const parsed = parseGcode('; filament_type = PLA;PLA;PLA;PLA\n; filament used [g] = 22.31;0;0;0\n; TIME:3600');
     expect(parsed.material).toBe('PLA');
     expect(parsed.plates[0]?.materials).toEqual([{ name: 'PLA', grams: '22.31' }]);
     expect(parsed.plates[0]?.grams).toBe('22.31');
