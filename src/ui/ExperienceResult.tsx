@@ -37,7 +37,7 @@ export function ExperienceResult({ state, frozen, onConfirm, onResolve, onSell, 
         <div className="reference-price-preview" aria-label="Preço estimado de referência">
           <span>Preço orientativo com tarifas documentadas</span>
           <strong>{label}</strong>
-          <p>{conditional ? 'Faixa conforme haja ou não cobrança da Devolução Fácil.' : 'Simulação ilustrativa com as condições informadas.'} Considera premissas ainda não verificadas e não é preço garantido nem lucro confirmado.</p>
+          <p>{conditional ? 'Cenários com e sem cobrança da Devolução Fácil.' : 'Simulação com as condições conhecidas.'} Não é preço garantido nem lucro confirmado. Se houver outras cobranças desconhecidas, o valor real pode superar esta referência.</p>\n          {estimate.hypotheticalConditions.length > 0 && <details><summary>Hipóteses usadas porque você respondeu “Não sei”</summary><ul>{estimate.hypotheticalConditions.map(condition => <li key={condition}>{condition}</li>)}</ul><p>Você já respondeu. Não precisa preencher novamente para ver este cenário; confira as condições somente para obter um cálculo mais preciso.</p></details>}
         </div>
         <p className="field-hint">Busca desde {currency(estimate.searchStart)}. O valor de anúncio pode mudar após conferir cobranças reais da Shopee e despesas não informadas.</p>
       </> : <>
