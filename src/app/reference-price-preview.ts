@@ -41,9 +41,11 @@ export function referencePricePreview(draft: CalculatorDraft, tables: readonly S
   try { table = selectTable(text(draft, 'date'), tables)?.table; } catch { return null; }
   if (!table) return null;
   const review = ['validity', 'rounding', ...(text(draft, 'seller') === 'CPF' && table.cpf.fixedConflict ? ['precedence'] : [])] as ('validity' | 'rounding' | 'precedence')[];
-  const unknownReturns = fields.returns === 'unknown';
-  const statuses = unknownReturns ? ['inactive', 'billable'] as const : [fields.returns] as const;
-  if (statuses.some(value => !['inactive', 'trial', 'billable'].includes(String(value)))) return null;
+  const declaredReturns = String(fields.returns ?? 'unknown');
+  const unknownReturns = declaredReturns === 'unknown';
+  if (!unknownReturns && !['inactive', 'trial', 'billable'].includes(declaredReturns)) return null;
+  const statuses: ('inactive' | 'trial' | 'billable')[] = unknownReturns
+    ? ['inactive', 'billable'] : [declaredReturns as 'inactive' | 'trial' | 'billable'];
 
   const prices: string[] = [];
   let minimumStart: string | null = null;
