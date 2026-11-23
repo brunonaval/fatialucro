@@ -46,7 +46,66 @@ jobs:
         run: |
           if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) { throw 'Missing TAURI_SIGNING_PRIVATE_KEY GitHub Secret: publication cancelled.' }
           if ([string]::IsNullOrWhiteSpace($env:TAURI_UPDATER_PUBLIC_KEY)) { throw 'Missing TAURI_UPDATER_PUBLIC_KEY GitHub Variable: publication cancelled.' }
-          if (-not $env:TAURI_UPDATER_PUBLIC_KEY.StartsWith('untrusted comment:')) { throw 'Public key must be minisign public key text, not a file path.' }
+          # The Tauri CLI stores the minisign public document encoded as Base64.
+          # The updater expects that encoded string verbatim in its pubkey config.
+          try {
+            $decodedPubkey = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:TAURI_UPDATER_PUBLIC_KEY.Trim()))
+          }
+          catch { throw 'TAURI_UPDATER_PUBLIC_KEY must be the Base64 content of the .key.pub file.' }
+          $pubkeyLines = $decodedPubkey -split '\r?\n'
+          if ($pubkeyLines.Count -lt 2 -or
+              -not $pubkeyLines[0].StartsWith('untrusted comment: minisign public key') -or
+              $pubkeyLines[1] -notmatch '^RW[A-Za-z0-9+/=]{40,}
+          $package = Get-Content package.json -Raw | ConvertFrom-Json
+          $tauri = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          if ($package.version -ne $tauri.version) { throw 'Tauri and npm versions do not match.' }
+          if ($package.version -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') { throw 'A stable SemVer is required.' }
+          $tag = 'v' + $package.version
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists; increment the application version before publishing." }
+          $config = @{
+            bundle = @{ createUpdaterArtifacts = $true }
+            plugins = @{ updater = @{
+              pubkey = $env:TAURI_UPDATER_PUBLIC_KEY
+              endpoints = @('https://github.com/brunonaval/fatialucro/releases/latest/download/latest.json')
+              requireSignedVersion = $true
+              windows = @{ installMode = 'passive' }
+            } }
+            app = @{ security = @{ capabilities = @(@{
+              identifier = 'signed-desktop'
+              description = 'Only the main desktop window may check, download and install verified updates.'
+              windows = @('main')
+              permissions = @('core:default', 'updater:allow-check', 'updater:allow-download-and-install')
+            }) } }
+          }
+          $config | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath src-tauri/updater-release.conf.json -Encoding utf8
+      - run: npm ci
+      - run: npm run check
+      - run: npm audit --audit-level=high
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+      - name: Validate signed Rust updater
+        shell: pwsh
+        run: cargo clippy --locked --manifest-path src-tauri/Cargo.toml --features signed-updater --all-targets -- -D warnings
+      - name: Build, sign and publish Windows update
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VITE_FATIALUCRO_SIGNED_UPDATER: 'true'
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: v__VERSION__
+          releaseName: FatiaLucro v__VERSION__
+          releaseBody: 'Atualização do FatiaLucro: instalador Windows assinado para o atualizador integrado.'
+          releaseDraft: false
+          prerelease: false
+          uploadUpdaterJson: true
+          updaterJsonPreferNsis: true
+          uploadUpdaterSignatures: true
+          args: '--features signed-updater --config src-tauri/updater-release.conf.json --ci -- --locked'
+) {
+            throw 'TAURI_UPDATER_PUBLIC_KEY does not decode to a minisign public key.'
+          }
           $package = Get-Content package.json -Raw | ConvertFrom-Json
           $tauri = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
           if ($package.version -ne $tauri.version) { throw 'Tauri and npm versions do not match.' }
