@@ -45,7 +45,7 @@ Em `https://github.com/brunonaval/fatialucro/settings/secrets/actions`:
 
 Em `https://github.com/brunonaval/fatialucro/settings/variables/actions`:
 
-- **New repository variable** → `TAURI_UPDATER_PUBLIC_KEY` → cole o conteúdo integral de `fatialucro-updater.key.pub` (duas linhas, começando por `untrusted comment:`).
+- **New repository variable** → `TAURI_UPDATER_PUBLIC_KEY` → cole o conteúdo integral de `fatialucro-updater.key.pub` **sem decodificar nem transformar**. O Tauri CLI gera o arquivo como texto Base64 (normalmente uma única linha); o cabeçalho `untrusted comment:` só aparece depois de decodificá-lo. O assistente verifica esse formato automaticamente.
 
 > A chave pública não é segredo e pode ser usada no build. A chave privada só é lida pelo GitHub Actions durante a publicação de releases; o aplicativo instalado contém somente a pública.
 
