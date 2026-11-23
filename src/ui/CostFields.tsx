@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { D } from '../engine/decimal';
 import { parseBrazilianMoney } from '../engine/decimal';
 import { depreciationPerHour } from '../engine';
 import { numeric, text } from '../app/model';
@@ -7,15 +8,24 @@ import type { SavedEntry } from '../app/storage';
 import { Field, Input, NumericInput } from './Fields';
 import { useExperience } from './ExperienceContext';
 import { currency } from './ResultView';
-import { profileSource } from '../app/ux-v3';
+import { profileSignature, profileSource } from '../app/ux-v3';
 
 function filamentLabel(entry: SavedEntry) {
   try { const profile = withExperience(entry.draft); validateReusableProfile(profile, 'filament'); return `${entry.name} — ${profile.ux.filament.mode === 'spool' ? `${currency(profile.ux.filament.amount.replace(',', '.'))} / ${profile.ux.filament.netGrams} g` : `${currency(text(profile, 'filament').replace(',', '.'))}/kg`}`; }
   catch { return `${entry.name} — custo incompleto, confira o perfil`; }
 }
-export function FilamentFields({ entries, onProfile }: { entries: SavedEntry[]; onProfile: (entry: SavedEntry) => void }) {
+export function FilamentFields({ entries, onProfile, onSave }: { entries: SavedEntry[]; onProfile: (entry: SavedEntry) => void; onSave?: (draft: ReturnType<typeof withExperience>) => Promise<void> }) {
   const { draft, ux, patch, update, financial } = useExperience(); const [removing, setRemoving] = useState<string | null>(null);
   const profiles = entries.filter(item => item.kind === 'filament'); const [profileError, setProfileError] = useState('');
+  const [saveFeedback, setSaveFeedback] = useState(''); const [saving, setSaving] = useState(false);
+  const labelToSave = text(draft, 'materialName').trim();
+  let validForSaving = false;
+  try {
+    validateReusableProfile(draft, 'filament');
+    const paid = ux.filament.mode === 'spool' ? ux.filament.amount : text(draft, 'filament');
+    validForSaving = new D(paid.replace(',', '.')).gt(0);
+  } catch { /* Costs are still being entered; saving is optional. */ }
+  const alreadySaved = profiles.some(entry => profileSignature(entry.draft, 'filament') === profileSignature(draft, 'filament'));
   let rates: ReturnType<typeof spoolRates> | null = null;
   try { if (ux.filament.mode === 'spool') rates = spoolRates(ux.filament.amount, ux.filament.netGrams); } catch { /* Incomplete values remain manual. */ }
   const chooseProfile = (entry: SavedEntry, row?: number) => {
@@ -39,7 +49,18 @@ export function FilamentFields({ entries, onProfile }: { entries: SavedEntry[]; 
       {!!profiles.length && <label>Usar um filamento salvo<select value="" onChange={event => { const profile = profiles.find(item => item.id === event.target.value); if (profile) chooseProfile(profile); }}><option value="">Selecionar filamento…</option>{profiles.map(item => <option key={item.id} value={item.id}>{filamentLabel(item)}</option>)}</select></label>}
       <div className="choice-row" aria-label="Forma de informar filamento"><button type="button" aria-pressed={ux.filament.mode === 'spool'} className="secondary" onClick={() => patch({ filament: { ...ux.filament, mode: 'spool' } })}>Informar preço da bobina</button><button type="button" aria-pressed={ux.filament.mode === 'kg'} className="secondary" onClick={() => patch({ filament: { ...ux.filament, mode: 'kg' } })}>Já sei o preço por kg</button></div>
       {ux.filament.mode === 'spool' ? <><div className="fields"><NumericInput name="spool-price" label="Quanto você pagou pela bobina?" kind="money" value={ux.filament.amount} onValue={amount => patch({ filament: { ...ux.filament, amount } })} /><NumericInput name="spool-weight" label="Quanto filamento veio na bobina? (g, sem o carretel)" kind="weight" value={ux.filament.netGrams} onValue={netGrams => patch({ filament: { ...ux.filament, netGrams } })} /></div><p className="muted">Não precisa ser 1 kg. Use a quantidade de filamento realmente comprada.</p>{rates && <p className="rate-preview">Equivale a aproximadamente R$ {rates.perGram.replace('.', ',')}/g e R$ {rates.perKg.replace('.', ',')}/kg. O cálculo usa valor e peso originais, sem arredondar esse equivalente.</p>}</> : <Field name="filament" label="Preço direto por quilograma" />}
-      <Input name="materialName" label="Material ou nome do filamento (opcional)" required={false} />
+      <Input name="materialName" label="Material ou nome do filamento (opcional para calcular)" required={false} />
+      {onSave && <div className="profile-shortcut"><h4>Usar esta bobina novamente</h4>
+        <p className="field-hint">Salve o preço e o peso líquido uma vez. Nas próximas importações, se houver um único perfil com o mesmo material, ele será reutilizado. Você pode trocar a bobina a qualquer momento.</p>
+        <button type="button" className="secondary" disabled={saving || !validForSaving || !labelToSave || alreadySaved} onClick={async () => {
+          setSaving(true); setSaveFeedback('');
+          try { await onSave(withExperience(draft)); setSaveFeedback('Filamento salvo neste dispositivo. O próximo cálculo pode reutilizar este preço.'); }
+          catch (error) { setSaveFeedback(error instanceof Error ? error.message : 'Não foi possível salvar o filamento.'); }
+          finally { setSaving(false); }
+        }}>{saving ? 'Salvando filamento…' : alreadySaved ? 'Este filamento já está salvo' : 'Salvar este filamento para próximas impressões'}</button>
+        {!labelToSave && <p className="field-hint">Para salvar, informe um nome simples acima, por exemplo PLA. Não é necessário nome para calcular.</p>}
+        {saveFeedback && <p role="status" className="message">{saveFeedback}</p>}
+      </div>}
     </> : <>
       <p className="muted">Preencha o preço de cada material. Peso de suporte, purga e trocas deve estar no consumo informado, sem ser somado novamente.</p>
       {draft.materials.map((item, index) => <div className="material-row" key={item.id}><label>Material<input name={`${item.id}-name`} value={item.name} onChange={event => update({ ...draft, materials: draft.materials.map((value, i) => i === index ? { ...value, name: event.target.value } : value) })} /></label><div className="fields">

@@ -34,7 +34,10 @@ export function withExperience(draft: CalculatorDraft): CalculatorDraft & { ux: 
 export function applyImportedPlate(draft: CalculatorDraft, data: PrintImport, plate: ImportedPlate): CalculatorDraft {
   const updated = applyPlate(draft, plate); const ux = withExperience(draft).ux;
   const material = [...new Set(plate.materials.map(item => item.name))].join('; ') || null;
-  return { ...updated, ux: { ...ux, entry: 'import', stage: 'print', filament: { mode: 'spool', amount: '', netGrams: '' }, origin: { fileName: data.fileName, printer: data.printer, material, plateId: plate.id, plateName: plate.name, plateCount: data.plates.length, grams: plate.grams, seconds: plate.seconds, pieces: plate.pieces, warnings: data.warnings, materials: plate.materials } } };
+  // A newly imported material cannot inherit the previous spool's provenance.
+  // Reuse only after checking a saved profile against this particular plate.
+  const profileOrigins = { ...ux.profileOrigins }; delete profileOrigins.filament;
+  return { ...updated, ux: { ...ux, profileOrigins, entry: 'import', stage: 'print', filament: { mode: 'spool', amount: '', netGrams: '' }, origin: { fileName: data.fileName, printer: data.printer, material, plateId: plate.id, plateName: plate.name, plateCount: data.plates.length, grams: plate.grams, seconds: plate.seconds, pieces: plate.pieces, warnings: data.warnings, materials: plate.materials } } };
 }
 export function validateReusableProfile(draft: CalculatorDraft, kind: 'filament' | 'printer') {
   const ux = withExperience(draft).ux;

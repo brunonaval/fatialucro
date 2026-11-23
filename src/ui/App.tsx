@@ -16,6 +16,7 @@ import type { CatalogPackage, ValidatedPackage } from '../marketplaces/catalogs/
 import { FormContext } from './Fields';
 import { ExperienceContext } from './ExperienceContext';
 import { PrintImport } from './PrintImport';
+import { filamentProfileDraft } from '../app/filament-reuse';
 import { PrintStep } from './PrintStep';
 import { FilamentFields, OptionalCosts, PackagingFields, PrinterFields } from './CostFields';
 import { SaleStep } from './SaleStep';
@@ -175,8 +176,13 @@ export function App() {
     update(workshopDefaults(current, all)); setNotice('Custos conhecidos da oficina aplicados. Etapas incompletas continuam no assistente para você retomar.');
   }
   async function saveProfile(value: CalculatorDraft, kind: 'printer' | 'filament') {
-    validateProfile(value, kind); const name = text(value, kind === 'printer' ? 'printerName' : 'materialName').trim() || (kind === 'printer' ? 'Minha impressora' : 'Meu filamento');
-    await repo().save({ id: crypto.randomUUID(), kind, name, updatedAt: new Date().toISOString(), draft: structuredClone(value) }); await refresh();
+    validateProfile(value, kind);
+    const name = text(value, kind === 'printer' ? 'printerName' : 'materialName').trim() || (kind === 'printer' ? 'Minha impressora' : 'Meu filamento');
+    // A filament profile stores only reusable material data, never the product's
+    // quantities, price, customer or marketplace conditions.
+    const stored = kind === 'filament' ? filamentProfileDraft(value) : structuredClone(value);
+    await repo().save({ id: crypto.randomUUID(), kind, name, updatedAt: new Date().toISOString(), draft: stored });
+    await refresh();
   }
   async function applyCatalog(next: ValidatedPackage) { await repo().activateCatalog(next.package); setCatalog(next); setSavedKey(''); }
   function chooseTheme(value: string) { if (!isTheme(value)) return; setTheme(value); if (repository.current) void repository.current.setTheme(value).catch(() => setNotice('Tema aplicado nesta sessão, mas não foi possível salvar a preferência.')); }
@@ -208,7 +214,7 @@ export function App() {
             <label><input type="radio" name="start-goal" checked={startGoal === 'cost'} onChange={() => setStartGoal('cost')} />Quanto custa imprimir?</label>
             <label><input type="radio" name="start-goal" checked={startGoal === 'sale'} onChange={() => setStartGoal('sale')} />Já tenho um preço: quanto vou lucrar?</label>
           </fieldset>
-          <PrintImport primary disabled={!ready} draft={current} onApply={startWithGoal} />
+          <PrintImport primary disabled={!ready} filaments={realEntries} draft={current} onApply={startWithGoal} />
           <div className="start-alternatives"><button type="button" className="secondary" disabled={!ready} onClick={() => startWithGoal({ ...current, ux: { ...ux, entry: 'manual', stage: 'print' } })}>Preencher manualmente — peso e tempo</button><button type="button" className="text-button" disabled={!ready} onClick={() => { void exploreExample(); }}>Experimentar com um exemplo fictício</button></div>
           {recovery && <div className="recovery-card"><h3>Há um rascunho neste dispositivo</h3><p>{text(recovery, 'productName') || 'Impressão sem nome'} · a data e as entradas serão preservadas.</p><button type="button" className="secondary" onClick={() => { update(withExperience(recovery)); setRecovery(null); setEditing({}); setSavedKey(''); }}>Continuar de onde parei</button></div>}
           <button type="button" className="text-button" onClick={() => { setPage('settings'); setShowWorkshop(true); }}>Configurar minha oficina (opcional)</button>
@@ -218,8 +224,8 @@ export function App() {
           <div className="calculation-layout"><div className="calculation-content">
           <CalculationNavigation ux={ux} onStage={setStage} />
           <form onSubmit={submit} noValidate>
-            {show('print') && <PrintStep />}
-            {show('costs') && <section id="costs-step"><div className="section-heading"><span className="step-label">Custos</span><h2>Quanto custa fabricar esta peça?</h2><p>Para começar, informe somente o preço do filamento. Energia, máquina e trabalho são opcionais.</p></div><FilamentFields entries={realEntries} onProfile={useProfile} />{ux.machineIncluded ? <PrinterFields entries={realEntries} onProfile={useProfile} /> : <details className="optional-costs"><summary>Incluir energia e custo da impressora (opcional)</summary><PrinterFields entries={realEntries} onProfile={useProfile} /></details>}{ux.intent === 'cost' && <details><summary>Incluir embalagem (opcional)</summary><PackagingFields /></details>}<OptionalCosts /></section>}
+            {show('print') && <PrintStep filaments={realEntries} />}
+            {show('costs') && <section id="costs-step"><div className="section-heading"><span className="step-label">Custos</span><h2>Quanto custa fabricar esta peça?</h2><p>Para começar, informe somente o preço do filamento. Energia, máquina e trabalho são opcionais.</p></div><FilamentFields entries={realEntries} onProfile={useProfile} onSave={value => saveProfile(value, 'filament')} />{ux.machineIncluded ? <PrinterFields entries={realEntries} onProfile={useProfile} /> : <details className="optional-costs"><summary>Incluir energia e custo da impressora (opcional)</summary><PrinterFields entries={realEntries} onProfile={useProfile} /></details>}{ux.intent === 'cost' && <details><summary>Incluir embalagem (opcional)</summary><PackagingFields /></details>}<OptionalCosts /></section>}
             {ux.intent === 'sale' && show('sale') && <SaleStep tables={catalog.tables} onSaveShop={() => { void saveShop(); }} />}
             {show('result') && <ExperienceResult tables={catalog.tables} state={automatic.state} issues={issues} onFix={fixIssue} onConfirm={() => setStage('sale')} onResolve={resolvePending} onSell={() => update(beginSale(current))} onAdjustPrice={price => update(applyFinalPrice(current, price))} onSave={() => { void saveResult(); }} saved={savedKey === resultKey} />}
             <StageActions ux={ux} onStage={setStage} />

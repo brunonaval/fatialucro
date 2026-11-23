@@ -1,12 +1,14 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { CalculatorDraft } from '../app/model';
+import type { SavedEntry } from '../app/storage';
+import { reuseUniqueFilamentProfile } from '../app/filament-reuse';
 import { applyImportedPlate, withExperience } from '../app/experience';
 import { MAX_ARCHIVE_BYTES, MAX_GCODE_BYTES } from '../importers/limits';
 import type { PrintImport as ImportData } from '../importers';
 import { formattedNumeric } from './format';
 import { D } from '../engine/decimal';
 
-export function PrintImport({ draft, onApply, primary = false, disabled = false }: { draft: CalculatorDraft; onApply: (draft: CalculatorDraft) => void; primary?: boolean; disabled?: boolean }) {
+export function PrintImport({ draft, onApply, filaments = [], primary = false, disabled = false }: { draft: CalculatorDraft; onApply: (draft: CalculatorDraft) => void; filaments?: readonly SavedEntry[]; primary?: boolean; disabled?: boolean }) {
   const id = useId(); const input = useRef<HTMLInputElement | null>(null); const [data, setData] = useState<ImportData | null>(null); const [plateId, setPlateId] = useState('');
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [dragging, setDragging] = useState(false); const worker = useRef<Worker | null>(null); const revision = useRef(0);
   useEffect(() => () => { revision.current++; worker.current?.terminate(); }, []);
@@ -30,6 +32,7 @@ export function PrintImport({ draft, onApply, primary = false, disabled = false 
     } catch { if (current === revision.current) { setBusy(false); setError('Leitura local indisponível. Tente selecionar o arquivo novamente ou preencha manualmente.'); } }
   }
   const plate = data?.plates.find(item => item.id === plateId);
+  const suggested = data && plate ? reuseUniqueFilamentProfile(applyImportedPlate(withExperience(draft), data, plate), filaments) : null;
   return <div className={`print-import ${primary ? 'primary-import' : ''}`} aria-busy={busy}>
     <div className={`drop-zone ${dragging ? 'is-dragging' : ''}`} onDragOver={event => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={event => { event.preventDefault(); event.stopPropagation(); setDragging(false); const files = event.dataTransfer.files; if (files.length !== 1) { setError('Selecione uma impressão por vez.'); return; } void read(files[0]); }}>
       <span className="import-symbol" aria-hidden="true">↥</span><h3>Importar impressão fatiada (.3mf/.gcode)</h3><p>Bambu Studio ou OrcaSlicer fatiado · .3mf, .gcode.3mf ou G-code textual compatível</p>
@@ -41,7 +44,10 @@ export function PrintImport({ draft, onApply, primary = false, disabled = false 
     {data && <div className="import-review"><h3>Confira antes de usar</h3><h3>{data.fileName}</h3><p>Impressora identificada: <strong>{data.printer ?? 'não informada no arquivo'}</strong></p>
       {!!data.plates.length && <label>Placa que será calculada<select value={plateId} onChange={event => setPlateId(event.target.value)}>{data.plates.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
       {plate && <><dl className="import-facts"><dt>Peças identificadas</dt><dd>{plate.pieces ?? 'Precisa confirmar manualmente'}</dd><dt>Material utilizado</dt><dd>{[...new Set(plate.materials.map(item => item.name))].join(', ') || 'Não identificado nesta placa'}</dd><dt>Filamento</dt><dd>{plate.grams === null ? 'Precisa confirmar manualmente' : `${formattedNumeric(plate.grams, 'weight')} g`}</dd><dt>Tempo estimado</dt><dd>{plate.seconds === null ? 'Precisa confirmar manualmente' : formattedNumeric(new D(plate.seconds).div(3600).toDecimalPlaces(12).toFixed(), 'duration')}</dd></dl>
-        <p>Encontrado no arquivo: estimativas do fatiador, não medição real. Precisa confirmar: se os objetos são peças físicas equivalentes; não são automaticamente itens vendidos. Valores ausentes serão deixados em branco. Preços e custos continuam sendo informados por você.</p><button type="button" onClick={() => onApply(applyImportedPlate(withExperience(draft), data, plate))}>Usar esta placa</button></>}
+        <p>Encontrado no arquivo: estimativas do fatiador, não medição real. Precisa confirmar: se os objetos são peças físicas equivalentes; não são automaticamente itens vendidos. Valores ausentes serão deixados em branco. Preços e custos continuam sendo informados por você.</p>
+        {suggested?.applied && <p className="help-box">Encontramos um único filamento salvo compatível: <strong>{suggested.applied}</strong>. O preço da bobina será reutilizado ao importar. Confira se é a mesma bobina antes de fechar o orçamento.</p>}
+        {suggested && suggested.matched > 1 && <p className="notice">Encontramos {suggested.matched} filamentos salvos com esse nome. Para evitar escolher um preço errado, selecione a bobina correta na etapa Custos.</p>}
+        <button type="button" onClick={() => onApply(suggested?.draft ?? applyImportedPlate(withExperience(draft), data, plate))}>Usar esta placa</button></>}
       {!data.plates.length && <><p className="notice">Este arquivo não trouxe peso e tempo. Não encontramos estimativas de fatiamento compatíveis; nenhuma quantidade foi inventada.</p><p>No Bambu Studio/OrcaSlicer, fatie a placa e exporte a placa fatiada em 3MF/G-code; você também pode informar os valores manualmente. Salvar apenas o projeto geométrico pode não incluir essas estimativas. Os nomes do comando variam conforme a versão do fatiador.</p><button type="button" className="secondary" onClick={() => onApply(applyImportedPlate(withExperience(draft), data, { id: 'manual', name: 'Preenchimento manual', grams: null, seconds: null, pieces: null, materials: [] }))}>Preencher manualmente</button></>}
       {data.plates.length > 1 && <p className="notice">Este arquivo tem {data.plates.length} placas. O cálculo usa somente a placa selecionada; não consolida as demais. Calcule cada placa individualmente. Tempo de impressão representa horas-máquina, não prazo de calendário ou entrega. Não some seus pesos e tempos como se pertencessem a uma única peça.</p>}
       {!!data.warnings.length && <details><summary>Dados ausentes e observações do arquivo</summary><ul>{data.warnings.map((item, index) => <li key={index}>{item}</li>)}</ul></details>}

@@ -21,12 +21,21 @@ A UX V4 está em andamento na branch experimental do PR #1. A versão instalada 
 - A validação guiada usa a mesma condição de ativação usada para montar o cenário financeiro. O botão Corrigir também encontra campos do modo avançado, e a contagem de peças de um kit agora tem nome identificável.
 - Testes adicionais verificam opção desmarcada, campos obrigatórios ao ativar e retrocompatibilidade.
 
+## Incremento: custo da bobina reutilizável após importar 3MF
+
+- A etapa de Custos agora permite salvar o preço da bobina ou o preço por kg como perfil sem sair do cálculo. Para salvar é necessário identificar o material pelo nome, mas isso continua opcional para calcular.
+- O perfil salvo contém apenas nome e custo reutilizável do material; não copia nome da peça, quantidades do pedido, preço anunciado, dados da loja ou metadados da impressão.
+- Ao importar uma placa com **um único filamento efetivamente consumido**, o FatiaLucro verifica perfis salvos com o mesmo nome exato após normalização de espaços e maiúsculas/minúsculas. Se houver exatamente um perfil válido e com preço positivo, seu custo é reutilizado com indicação visível da origem e orientação para confirmar que é a mesma bobina.
+- Se houver múltiplos perfis do mesmo nome, múltiplos filamentos consumidos, materiais sem identificação ou perfil sem custo válido, **nenhum preço é presumido**. A escolha permanece manual.
+- Ao importar outra placa, o vínculo visual com o perfil anterior é removido antes de tentar novo reconhecimento, evitando mostrar um custo antigo como se pertencesse ao novo material.
+- Testes automatizados verificam material PLA em quatro posições configuradas, perfil único, perfis ambíguos, consumo de dois filamentos PLA, troca de material e proteção de dados de venda.
+
 ## Pendências (não confundir com funcionalidade entregue)
 
 - Homologação visual no Windows/WebView2 por usuário real, incluindo rolagem e foco de campos em painéis.
 - Testes de jornada DOM completos, sem depender apenas de HTML estático e testes de lógica.
 - Diagnóstico de erro técnico em Worker separado da validação do formulário com identificação estruturada.
-- Preferências e aplicação automática de perfis em todos os cenários, inclusive múltiplos materiais do mesmo tipo com preços diferentes.
+- Reutilização assistida de perfis em todos os cenários; placas com materiais múltiplos e preços diferentes continuam exigindo escolha explícita, para não misturar custos.
 - Normalização de entradas financeiras ambíguas com confirmação específica (não adivinhar separadores).
 - Revisão completa de acessibilidade, teclados, leitor de tela e telas pequenas.
 - Real 3MF da impressora do usuário para validar compatibilidade além das fixtures sintéticas.
