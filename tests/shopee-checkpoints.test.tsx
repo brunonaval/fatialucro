@@ -21,7 +21,8 @@ describe('UX V4 — conferência de condições da Shopee sem repetir todas as p
     const draft = newCalculationDraft(new Date(2026, 10, 22));
     const checks = shopeeCheckpoints(draft, bundledTables);
     expect(checks.map(check => check.id)).toEqual(['shop-seller', 'shop-programs', 'shop-shipping']);
-    expect(checks.filter(check => check.state === 'pending')).toHaveLength(1);\n    expect(checks.filter(check => check.state === 'review')).toHaveLength(2);
+    expect(checks.filter(check => check.state === 'pending')).toHaveLength(1);
+    expect(checks.filter(check => check.state === 'review')).toHaveLength(2);
     expect(draft.fields.returns).toBe('unknown');
     expect(draft.ux?.shipping).toBe('unknown');
   });
