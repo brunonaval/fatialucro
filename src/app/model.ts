@@ -90,7 +90,7 @@ export function packagingInput(draft: CalculatorDraft): Pick<SaleInput, 'packagi
   return { packagingPerUnit: parseBrazilianMoney(text(draft, 'packagingUnit')), packagingPerOrder: perOrder };
 }
 
-export function buildScenario(draft: CalculatorDraft, tables: readonly ShopeeTable[] = bundledTables) {
+export function buildScenario(draft: CalculatorDraft, tables: readonly ShopeeTable[] = bundledTables, referenceDiscountGross = false) {
   const programFields = scenarioPrograms(draft);
   draft = { ...draft, fields: programFields };
   const t = (name: string) => text(draft, name);
@@ -153,7 +153,7 @@ export function buildScenario(draft: CalculatorDraft, tables: readonly ShopeeTab
     acceptedAssumptions: Object.fromEntries((['validity', 'rounding', 'precedence'] as const).map(kind => [kind, yes(`accept${kind[0]!.toUpperCase()}${kind.slice(1)}`) && (!draft.ux?.assumptionReview || (draft.ux.assumptionReview.date === t('date') && draft.ux.assumptionReview.tableId === selectTable(t('date'), tables)?.table.id && draft.ux.assumptionReview.accepted.includes(kind)))])),
   };
   const catalogAt = (price: string) => {
-    const catalog = t('marketplace') === 'shopee' ? createShopeeCatalog(context, price, input.sellerDiscount, input.date, overrides, tables) : directSaleCatalog();
+    const catalog = t('marketplace') === 'shopee' ? createShopeeCatalog(context, price, input.sellerDiscount, input.date, overrides, tables, referenceDiscountGross) : directSaleCatalog();
     return draft.ux?.packagingDecision === 'unknown' ? { ...catalog, pending: [...(catalog.pending ?? []), { id: 'cost:packaging', message: 'Confirme a embalagem: informe seu custo ou escolha explicitamente não incluir neste cálculo. Embalagem desconhecida não foi considerada zero.' }] } : catalog;
   };
   return { input, catalogAt };
