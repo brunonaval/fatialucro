@@ -30,6 +30,16 @@ A UX V4 está em andamento na branch experimental do PR #1. A versão instalada 
 - Ao importar outra placa, o vínculo visual com o perfil anterior é removido antes de tentar novo reconhecimento, evitando mostrar um custo antigo como se pertencesse ao novo material.
 - Testes automatizados verificam material PLA em quatro posições configuradas, perfil único, perfis ambíguos, consumo de dois filamentos PLA, troca de material e proteção de dados de venda.
 
+## Incremento: conferência objetiva da loja Shopee
+
+- A tela de venda recebeu uma **conferência rápida**, calculada a partir do estado real do formulário: tipo de cadastro, programas adicionais, volume de pedidos para CPF e frete líquido do vendedor.
+- As respostas já informadas ficam recolhidas em uma síntese. Cada pendência mostra qual informação falta e um botão que leva à seção correspondente.
+- Ao reaproveitar um perfil da loja que já informa CPF/CNPJ, não é necessário reabrir o seletor toda vez; o botão **Alterar CPF ou CNPJ** mantém a opção de revisar.
+- Em perfis já salvos, as cinco perguntas individuais de programas podem ficar recolhidas até o vendedor solicitar conferência; adesões desconhecidas continuam sinalizadas e não viram "não".
+- Contagem exata de pedidos, resposta de volume válida para a data e frete confirmado são distintos de hipóteses financeiras. Exatamente na fronteira do adicional CPF continua marcado para revisão.
+- Esta conferência não altera a engine financeira, não certifica tarifas vigentes e não garante que o lucro final seja determinável. Assunções documentais e taxas sem fórmula permanecem no fluxo existente.
+- Há testes de regressão para CPF/CNPJ, programas desconhecidos ou ativos, mudança de data, volume na fronteira, frete e renderização com perfil de loja já salvo.
+
 ## Pendências (não confundir com funcionalidade entregue)
 
 - Homologação visual no Windows/WebView2 por usuário real, incluindo rolagem e foco de campos em painéis.

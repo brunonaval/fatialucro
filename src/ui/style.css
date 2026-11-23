@@ -222,3 +222,17 @@ input, select, button { scroll-margin-block: 28px; }
 .guided-issues li { padding: 6px 0 10px; }
 .guided-issues li button { display: block; margin-top: 6px; min-height: 38px; max-width: 100%; text-align: left; white-space: normal; }
 @media (max-width: 680px) { .guided-issues li button { width: 100%; } .quick-goals { padding: 10px; } }
+
+/* UX V4: shop responses first, tariff details only as needed. */
+.shop-checklist { border: 1px solid var(--border); border-radius: var(--radius-small); padding: var(--space-4); margin-bottom: var(--space-5); }
+.shop-checklist > h3 { margin-top: 0; }
+.shop-checklist > p { margin: var(--space-2) 0; }
+.shop-checklist-items { list-style: none; padding: 0; margin: var(--space-3) 0; display: grid; gap: var(--space-3); }
+.shop-checklist-items > li { border-top: 1px solid var(--border); padding-top: var(--space-3); }
+.shop-checklist-items li p { margin: var(--space-2) 0; }
+.shop-checklist-items button { margin-top: var(--space-1); min-height: 38px; }
+.shop-checklist details { margin-top: var(--space-3); }
+.shop-checklist details > ul { padding-left: var(--space-5); }
+.shop-saved-seller { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); }
+.shop-saved-seller p { margin: var(--space-2) 0; }
+@media (max-width: 700px) { .shop-checklist-items button { width: 100%; } }

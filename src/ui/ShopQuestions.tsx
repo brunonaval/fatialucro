@@ -6,24 +6,46 @@ import { declarePrograms, programQuestions, scenarioPrograms, profileSource } fr
 import { BaseField, Check, Field, Input, ManualFeeFields, ScopeField, Select } from './Fields';
 import { useExperience } from './ExperienceContext';
 import { SimulationReview } from './SimulationReview';
+import { shopeeCheckpoints } from '../app/shopee-checkpoints';
+import type { ShopeeCheckpointId } from '../app/shopee-checkpoints';
+import { ShopSetupGuide } from './ShopSetupGuide';
 
 export function ShopQuestions({ tables, permanentOnly = false }: { tables: readonly ShopeeTable[]; permanentOnly?: boolean }) {
-  const { draft, ux, update } = useExperience(); const prefix = useId(); const sectionId = (id: string) => permanentOnly ? `${prefix}-${id}` : id; const [showPrograms, setShowPrograms] = useState(false);
+  const { draft, ux, update } = useExperience(); const prefix = useId(); const sectionId = (id: string) => permanentOnly ? `${prefix}-${id}` : id; const [showPrograms, setShowPrograms] = useState(false); const [editSeller, setEditSeller] = useState(false);
   let threshold: number | null = null; let indicator: ReturnType<typeof catalogIndicator> | null = null;
   try { const table = selectTable(text(draft, 'date'), tables); threshold = table?.table.cpf.volumeThreshold ?? null; indicator = catalogIndicator(text(draft, 'date'), tables); } catch { /* Date validation is shown in the form. */ }
   const programs = [{ name: 'highlight', label: 'Campanha de Destaque', id: 'shopee:highlight' }, { name: 'ads', label: 'Ads Fácil', id: 'shopee:adsEasy' }, { name: 'affiliates', label: 'Afiliados', id: 'shopee:affiliates' }, { name: 'advance', label: 'Shopee Acelera', id: 'shopee:cashAdvance' }];
   const declaration = ux.programDeclaration; const fields = scenarioPrograms(draft);
-  const group = declaration?.date === text(draft, 'date') ? declaration.answer : programQuestions.every(program => fields[program.field] === 'unknown') ? 'unknown' : 'some';
+  const group = declaration?.date === text(draft, 'date') ? declaration.answer
+    : programQuestions.every(program => fields[program.field] === 'inactive') ? 'none'
+    : programQuestions.every(program => fields[program.field] === 'unknown') ? 'unknown' : 'some';
   function changeProgram(name: string, value: string) { const next = declarePrograms({ ...draft, fields: { ...fields, [name]: value } }, 'some'); update(next); }
-  const individual = group === 'some' || showPrograms;
+  const savedSeller = Boolean(ux.profileOrigins?.store && ['CPF', 'CNPJ'].includes(text(draft, 'seller')));
+  // A saved shop does not require opening all five programs on every quote.
+  const individual = showPrograms || (group === 'some' && !savedSeller);
+  function navigate(target: ShopeeCheckpointId) {
+    if (target === 'shop-programs') setShowPrograms(true);
+    if (target === 'shop-seller') setEditSeller(true);
+    const section = document.getElementById(sectionId(target));
+    if (section) { section.focus(); section.scrollIntoView({ block: 'center' }); }
+  }
+  const checks = permanentOnly ? [] : shopeeCheckpoints(draft, tables);
+  const exactOrders = text(draft, 'orders');
+  const exactCountEntered = /^\d+$/.test(exactOrders) && Number.isSafeInteger(Number(exactOrders));
   return <div className="shop-questions">
-    <div id={sectionId('shop-seller')} tabIndex={-1}><Select name="seller" label="Você vende como CPF ou CNPJ?"><option value="">Ainda não informei</option><option value="CPF">CPF — pessoa física</option><option value="CNPJ">CNPJ — pessoa jurídica</option></Select><p className="source-note">{profileSource(draft, 'store')}.</p></div>
+    {!permanentOnly && <ShopSetupGuide checks={checks} onNavigate={navigate} />}
+    <div id={sectionId('shop-seller')} tabIndex={-1}>
+      {savedSeller && !editSeller
+        ? <div className="shop-saved-seller"><p>Minha loja cadastrada: <strong>{text(draft, 'seller')}</strong> · {profileSource(draft, 'store')}</p><button type="button" className="text-button" onClick={() => setEditSeller(true)}>Alterar CPF ou CNPJ</button></div>
+        : <Select name="seller" label="Você vende como CPF ou CNPJ?"><option value="">Ainda não informei</option><option value="CPF">CPF — pessoa física</option><option value="CNPJ">CNPJ — pessoa jurídica</option></Select>}
+    </div>
     <div id={sectionId('shop-programs')} className="cost-block" tabIndex={-1}><h3>Programas e cobranças adicionais</h3>
       <label>Sua loja participa de programas que podem cobrar taxas adicionais?<select value={group} onChange={event => { update(declarePrograms(draft, event.target.value as 'none' | 'some' | 'unknown')); setShowPrograms(event.target.value === 'some'); }}><option value="unknown">Não sei</option><option value="none">Não participo de nenhum dos programas listados</option><option value="some">Sim, participo de alguns / conferir individualmente</option></select></label>
       <p className="program-list">Programas considerados nesta declaração: {programQuestions.map(program => program.name).join(', ')}.</p>
       {group === 'none' && <p className="help-box">Você declarou esses cinco programas inativos em {text(draft, 'date')}. Isso não elimina comissão básica, condições de CPF, frete ou pendências documentais.</p>}
       {group === 'unknown' && <p className="notice">Não saber não significa não participar. As cobranças continuam desconhecidas até sua confirmação.</p>}
       {!individual && <button type="button" className="text-button" onClick={() => setShowPrograms(true)}>Conferir cada programa</button>}
+      {individual && savedSeller && <button type="button" className="text-button" onClick={() => setShowPrograms(false)}>Recolher programas já conferidos</button>}
       {individual && <div className="program-questions">
         <label>Sua loja participa da Devolução Fácil?<select value={String(fields.returns)} onChange={event => changeProgram('returns', event.target.value)}><option value="unknown">Não sei</option><option value="inactive">Não</option><option value="trial">Sim, durante teste gratuito</option><option value="billable">Sim, com cobrança ativa</option></select></label>
         {programs.map(program => <label key={program.name}>Participa de {program.label}?<select value={String(fields[program.name])} onChange={event => changeProgram(program.name, event.target.value)}><option value="unknown">Não sei</option><option value="inactive">Não</option><option value="active">Sim</option></select></label>)}
@@ -32,7 +54,7 @@ export function ShopQuestions({ tables, permanentOnly = false }: { tables: reado
       <details><summary>Como descubro isso?</summary><p>Na Central do Vendedor, confira adesão e cobrança de cada programa e o detalhamento financeiro dos pedidos. As respostas aqui não alteram sua loja na Shopee.</p><a href="https://seller.shopee.com.br/" target="_blank" rel="noreferrer">Abrir Central do Vendedor por minha iniciativa</a></details>
     </div>
     {!permanentOnly && <>
-      {draft.fields.seller === 'CPF' && <div id={sectionId('shop-volume')} tabIndex={-1}><label>Nos últimos 90 dias, sua loja ultrapassou {threshold ?? 'o limite de'} pedidos?<select value={ux.volume.date === text(draft, 'date') && ux.volume.threshold === threshold ? ux.volume.answer : 'unknown'} onChange={event => update({ ...draft, fields: { ...draft.fields, orders: '' }, ux: { ...ux, volume: { answer: event.target.value as typeof ux.volume.answer, threshold, date: text(draft, 'date') } } })}><option value="unknown">Não sei</option><option value="above" disabled={threshold === null}>Sim, mais de {threshold ?? '…'}</option><option value="below" disabled={threshold === null}>Não, menos de {threshold ?? '…'}</option><option value="equal" disabled={threshold === null}>Exatamente {threshold ?? '…'}</option></select></label><details><summary>Como descubro o volume?</summary><p>Confira os pedidos nos 90 dias relevantes à data deste cenário. Exatamente no limite continua sujeito à pendência documental. Sem limite comprovado na tabela, esta pergunta não presume um número.</p><Input name="orders" label="Número exato de pedidos no período (opcional, tem prioridade)" required={false} /></details></div>}
+      {draft.fields.seller === 'CPF' && <div id={sectionId('shop-volume')} tabIndex={-1}><label>Nos últimos 90 dias, sua loja ultrapassou {threshold ?? 'o limite de'} pedidos?<select value={exactCountEntered ? 'exact' : ux.volume.date === text(draft, 'date') && ux.volume.threshold === threshold ? ux.volume.answer : 'unknown'} onChange={event => update({ ...draft, fields: { ...draft.fields, orders: '' }, ux: { ...ux, volume: { answer: event.target.value as typeof ux.volume.answer, threshold, date: text(draft, 'date') } } })}><option value="unknown">Não sei</option><option value="exact" disabled>Usando contagem exata de {exactOrders} pedidos</option><option value="above" disabled={threshold === null}>Sim, mais de {threshold ?? '…'}</option><option value="below" disabled={threshold === null}>Não, menos de {threshold ?? '…'}</option><option value="equal" disabled={threshold === null}>Exatamente {threshold ?? '…'}</option></select></label><details><summary>Como descubro o volume?</summary><p>Confira os pedidos nos 90 dias relevantes à data deste cenário. Exatamente no limite continua sujeito à pendência documental. Sem limite comprovado na tabela, esta pergunta não presume um número.</p><Input name="orders" label="Número exato de pedidos no período (opcional, tem prioridade)" required={false} /></details></div>}
       <div id={sectionId('shop-shipping')} tabIndex={-1}><label>Há frete efetivamente descontado do seu repasse?<select value={ux.shipping} onChange={event => update({ ...draft, fields: { ...draft.fields, shippingConfirmed: event.target.value !== 'unknown', ...(event.target.value === 'no' ? { shipping: '0' } : event.target.value === 'yes' && ux.shipping !== 'yes' ? { shipping: '' } : {}) }, ux: { ...ux, shipping: event.target.value as typeof ux.shipping } })}><option value="unknown">Não sei</option><option value="no">Não — confirmei custo líquido zero</option><option value="yes">Sim — informar o valor líquido</option></select></label>
       {ux.shipping === 'yes' && <Field name="shipping" label="Frete líquido debitado neste pedido" />}
       <details><summary>Como descubro o frete líquido?</summary><p>Confira o débito real no detalhamento financeiro do pedido, após pagamentos do comprador e subsídios. Frete pago por fora é outra despesa, informada uma única vez. Se não conferiu, escolha “Não sei”.</p></details></div>
