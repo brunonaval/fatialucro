@@ -94,7 +94,8 @@ describe('precificação automática com o mesmo motor documental', () => {
     Object.assign(draft.fields, { calculation: 'margin', targetMargin: '0.20' }); const margin = calculateExperience(draft); if (margin.kind !== 'sale') throw new Error(); expect(margin.data.input.unitPrice).toBe('5.00'); expect(margin.data.result.margin).toBe('0.200000000000');
   });
   it('busca interrompida não apresenta o preço final arbitrário como sugestão', () => {
-    const draft = cpfDraft(); Object.assign(draft.fields, { calculation: 'profit', price: '', targetProfit: '5', minPrice: '0.01', maxPrice: '100' });
+    const draft = cpfDraft(); Object.assign(draft.fields, { calculation: 'profit', price: '', targetProfit: '5', minPrice: '10', maxPrice: '100' });
+    // A manually chosen price range below CPF's documented tier remains blocked.
     expect(calculateExperience(draft).kind).toBe('blocked-search'); draft.fields.minPrice = '12'; const output = calculateExperience(draft); if (output.kind !== 'sale') throw new Error(); expect(output.data.input.unitPrice).toBe('13.75');
   });
   it('modo simples/avançado e navegação não duplicam nem alteram dados financeiros', () => {

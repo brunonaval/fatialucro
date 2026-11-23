@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { useId, useState } from 'react';
 import type { ShopeeTable } from '../marketplaces/catalogs/types';
 import { catalogIndicator, selectTable } from '../marketplaces/catalogs/select';
 import { text } from '../app/model';
@@ -11,7 +11,7 @@ import type { ShopeeCheckpointId } from '../app/shopee-checkpoints';
 import { ShopSetupGuide } from './ShopSetupGuide';
 
 export function ShopQuestions({ tables, permanentOnly = false }: { tables: readonly ShopeeTable[]; permanentOnly?: boolean }) {
-  const { draft, ux, update } = useExperience(); const prefix = useId(); const sectionId = (id: string) => permanentOnly ? `${prefix}-${id}` : id; const [showPrograms, setShowPrograms] = useState(false); const [editSeller, setEditSeller] = useState(false); const conditionsRef = useRef<HTMLDetailsElement | null>(null);
+  const { draft, ux, update } = useExperience(); const prefix = useId(); const sectionId = (id: string) => permanentOnly ? `${prefix}-${id}` : id; const [showPrograms, setShowPrograms] = useState(false); const [editSeller, setEditSeller] = useState(false);
   let threshold: number | null = null; let indicator: ReturnType<typeof catalogIndicator> | null = null;
   try { const table = selectTable(text(draft, 'date'), tables); threshold = table?.table.cpf.volumeThreshold ?? null; indicator = catalogIndicator(text(draft, 'date'), tables); } catch { /* Date validation is shown in the form. */ }
   const programs = [{ name: 'highlight', label: 'Campanha de Destaque', id: 'shopee:highlight' }, { name: 'ads', label: 'Ads Fácil', id: 'shopee:adsEasy' }, { name: 'affiliates', label: 'Afiliados', id: 'shopee:affiliates' }, { name: 'advance', label: 'Shopee Acelera', id: 'shopee:cashAdvance' }];
@@ -24,7 +24,8 @@ export function ShopQuestions({ tables, permanentOnly = false }: { tables: reado
   // A saved shop does not require opening all five programs on every quote.
   const individual = showPrograms || (group === 'some' && !savedSeller);
   function navigate(target: ShopeeCheckpointId) {
-    if (conditionsRef.current) conditionsRef.current.open = true;
+    const wrapper = document.getElementById(sectionId('shop-conditions-options'));
+    if (wrapper instanceof HTMLDetailsElement) wrapper.open = true;
     if (target === 'shop-programs') setShowPrograms(true);
     if (target === 'shop-seller') setEditSeller(true);
     window.requestAnimationFrame(() => {
@@ -35,10 +36,11 @@ export function ShopQuestions({ tables, permanentOnly = false }: { tables: reado
   const checks = permanentOnly ? [] : shopeeCheckpoints(draft, tables);
   const exactOrders = text(draft, 'orders');
   const exactCountEntered = /^\d+$/.test(exactOrders) && Number.isSafeInteger(Number(exactOrders));
+  const ConditionsContainer = permanentOnly ? 'div' : 'details';
   return <div className="shop-questions">
     {!permanentOnly && <ShopSetupGuide checks={checks} onNavigate={navigate} />}
-    <details ref={conditionsRef} className="shop-conditions" open={permanentOnly || ux.mode === 'advanced' ? true : undefined}>
-      <summary>{permanentOnly ? 'Conferir ou editar minha loja' : 'Conferir ou alterar CPF, programas, frete e tarifas (opcional)'}</summary>
+    <ConditionsContainer id={sectionId('shop-conditions-options')} className="shop-conditions" {...(ux.mode === 'advanced' && !permanentOnly ? { open: true } : {})}>
+      {!permanentOnly && <summary>Conferir ou alterar CPF, programas, frete e tarifas (opcional)</summary>}
     <div id={sectionId('shop-seller')} tabIndex={-1}>
       {savedSeller && !editSeller
         ? <div className="shop-saved-seller"><p>Minha loja cadastrada: <strong>{text(draft, 'seller')}</strong> · {profileSource(draft, 'store')}</p><button type="button" className="text-button" onClick={() => setEditSeller(true)}>Alterar CPF ou CNPJ</button></div>
@@ -73,6 +75,6 @@ export function ShopQuestions({ tables, permanentOnly = false }: { tables: reado
         {draft.fields.returns === 'billable' && <ManualFeeFields inline id="shopee:returns-protection" label="Devolução Fácil" />}{programs.filter(program => draft.fields[program.name] === 'active').map(program => <ManualFeeFields inline key={program.id} id={program.id} label={program.label} />)}
         <div className="fields"><Input type="date" name="manualFrom" label="Início do período personalizado" /><Input type="date" name="manualUntil" label="Fim do período personalizado" /></div><p>Personalização substitui somente a cobrança nomeada. Obrigatórias não podem ser desligadas. Valores desconhecidos nunca são preenchidos com zero.</p>
       </details>
-    </details>
+    </ConditionsContainer>
   </div>;
 }

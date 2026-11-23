@@ -32,7 +32,7 @@ describe('UX V2: semântica e comunicação do resultado em HTML estático', () 
     expect(error).toContain('Informe o peso'); expect(error).not.toContain('result-metrics');
   });
   it('busca bloqueada não publica o preço máximo usado internamente para validar as entradas', () => {
-    const draft = cpfDraft(); draft.fields.calculation = 'profit'; draft.fields.targetProfit = '5'; draft.fields.maxPrice = '40';
+    const draft = cpfDraft(); draft.fields.calculation = 'profit'; draft.fields.targetProfit = '5'; draft.fields.minPrice = '10'; draft.fields.maxPrice = '40';
     const output = calculateExperience(draft); expect(output.kind).toBe('blocked-search');
     const html = render(draft, <ExperienceResult frozen={output} />); expect(html).toContain('Busca não concluída'); expect(html).not.toContain('headline-price'); expect(html).not.toContain('result-metrics');
   });

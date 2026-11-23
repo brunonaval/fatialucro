@@ -142,7 +142,7 @@ describe('UX V3 — G a L: Shopee e intenção de venda', () => {
   });
   it('duas intenções visíveis usam o mesmo modo de cálculo, com margem explicada', () => {
     const draft = cpfDraft(); draft.fields.calculation = 'margin'; const markup = html(draft, <SaleStep tables={bundledTables} onSaveShop={() => {}} />);
-    expect(markup).toContain('Já tenho um preço'); expect(markup).toContain('Quero descobrir um preço'); expect(markup).toContain('não um preço competitivo'); expect(markup).toContain('Não é o mesmo que acrescentar');
+    expect(markup).toContain('Já tenho um preço'); expect(markup).toContain('Descobrir quanto cobrar'); expect(markup).toContain('O resultado mostra o preço mínimo calculável'); expect(markup).toContain('a busca começará em');
   });
 });
 
