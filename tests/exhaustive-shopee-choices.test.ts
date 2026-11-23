@@ -45,6 +45,62 @@ describe('Matriz exaustiva de opções Shopee', () => {
       expect(failures, examples.join('\n')).toBe(0);
     }, 240000);
   }
+  it('aceita campos opcionais vazios e preserva valores informados quando o usuário não sabe', () => {
+    const d = scenario(); d.fields.seller = 'CPF'; d.fields.calculation = 'margin';
+    d.fields.minPrice = ''; d.fields.maxPrice = '';
+    d.ux!.shipping = 'unknown'; d.fields.shipping = '';
+    d.ux!.packagingDecision = 'unknown'; d.ux!.packagingIncluded = false;
+    for (const key of ['highlight', 'ads', 'affiliates', 'advance', 'returns']) d.fields[key] = 'unknown';
+    expect(guidedIssues(d)).toEqual([]);
+    const result = calculateExperience(d, bundledTables);
+    expect(result.kind).toBe('blocked-search');
+    if (result.kind !== 'blocked-search') throw new Error('expected conditional estimate');
+    expect(result.referencePreview).toBeDefined();
+    expect(result.referencePreview!.hypotheticalConditions.join(' ')).toContain('Embalagem');
+    expect(result.referencePreview!.hypotheticalConditions.join(' ')).toContain('Frete');
+    expect(d.fields.minPrice).toBe('');
+    expect(d.fields.shipping).toBe('');
+  });
+  it('mantém a taxa conhecida de destaque e a taxa manual válida quando outros programas são desconhecidos', () => {
+    const d = scenario();
+    Object.assign(d.fields, { seller: 'CPF', calculation: 'margin', minPrice: '12', maxPrice: '60', returns: 'billable', highlight: 'active', ads: 'active', affiliates: 'unknown', advance: 'inactive', 'shopee:adsEasy:manual': true, 'shopee:adsEasy:kind': 'fixed', 'shopee:adsEasy:value': '2.00', 'shopee:adsEasy:scope': 'order', 'shopee:adsEasy:base': 'gross-sales', 'shopee:adsEasy:reference': 'Valor informado no pedido de teste' });
+    Object.assign(d.ux!, { shipping: 'no', volume: { answer: 'below', threshold: 450, date: '2026-11-23' }, packagingDecision: 'include', packagingIncluded: true });
+    const output = calculateExperience(d);
+    if (output.kind !== 'blocked-search' || !output.referencePreview) throw new Error('missing estimate');
+    expect(output.referencePreview.excludedActivePrograms).toEqual([]);
+    expect(output.referencePreview.lower).toBe(output.referencePreview.upper);
+    const before = Number(output.referencePreview.lower);
+    d.fields.highlight = 'inactive';
+    const withoutHighlight = calculateExperience(d);
+    if (withoutHighlight.kind !== 'blocked-search' || !withoutHighlight.referencePreview) throw new Error('missing estimate');
+    expect(Number(withoutHighlight.referencePreview.lower)).toBeLessThan(before);
+    d.fields['shopee:adsEasy:manual'] = false;
+    const withoutManual = calculateExperience(d);
+    if (withoutManual.kind !== 'blocked-search' || !withoutManual.referencePreview) throw new Error('missing estimate');
+    expect(Number(withoutManual.referencePreview.lower)).toBeLessThan(Number(withoutHighlight.referencePreview.lower));
+    expect(withoutManual.referencePreview.excludedActivePrograms).toContain('Ads Fácil');
+  });
+  it('permite venda direta com embalagem desconhecida sem fingir que o lucro final é conhecido', () => {
+    const d = scenario(); d.fields.marketplace = 'direct'; d.fields.calculation = 'profit';
+    d.ux!.packagingDecision = 'unknown'; d.ux!.packagingIncluded = false;
+    expect(guidedIssues(d)).toEqual([]);
+    const result = calculateExperience(d);
+    if (result.kind !== 'blocked-search') throw new Error('expected conditional estimate');
+    expect(result.referencePreview).toBeDefined();
+    expect(result.data.result.operatingProfit).toBeNull();
+  });
+  it('valida limites, metas e taxa personalizada somente quando a opção correspondente está ativa', () => {
+    const d = scenario(); d.fields.seller = 'CPF'; d.fields.calculation = 'margin'; d.fields.targetMargin = '1';
+    expect(guidedIssues(d).some(i => i.field === 'targetMargin')).toBe(true);
+    d.fields.targetMargin = '0.20'; d.fields.minPrice = '40'; d.fields.maxPrice = '20';
+    expect(guidedIssues(d).some(i => i.field === 'maxPrice')).toBe(true);
+    d.fields.minPrice = '12'; d.fields.maxPrice = '60';
+    d.fields.ads = 'inactive'; d.fields['shopee:adsEasy:manual'] = true;
+    expect(guidedIssues(d).some(i => i.field.startsWith('shopee:adsEasy:'))).toBe(false);
+    d.fields.ads = 'active';
+    expect(guidedIssues(d).some(i => i.field === 'shopee:adsEasy:value')).toBe(true);
+    expect(guidedIssues(d).some(i => i.field === 'shopee:adsEasy:scope')).toBe(true);
+  });
   it('marca exatamente o campo obrigatório e aceita o frete desconhecido', () => {
     const d = scenario(); d.fields.seller = 'CPF'; d.fields.calculation = 'margin'; d.ux!.shipping = 'yes'; d.fields.shipping = '';
     expect(guidedIssues(d).some(i => i.field === 'shipping' && i.stage === 'sale')).toBe(true);
