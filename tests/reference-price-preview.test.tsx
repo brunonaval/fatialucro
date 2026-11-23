@@ -62,7 +62,7 @@ describe('Prévia orientativa sem alterar declarações da Shopee', () => {
     const html = view(d, <ExperienceResult frozen={result} />);
     expect(html).toContain('Preço orientativo');
     expect(html).toContain('R$ 22,24 a R$ 23,05');
-    expect(html).toContain('não é preço garantido');
+    expect(html).toContain('Não é preço garantido');
     expect(html).not.toContain('headline-price');
     const summary = view(d, <FinancialSummary draft={d} state={{ signature: 'test', phase: 'ready', output: result }} />);
     expect(summary).toContain('Preço orientativo da Shopee');
@@ -78,7 +78,7 @@ describe('Prévia orientativa sem alterar declarações da Shopee', () => {
     const d = capturedScenario(); d.fields.ads = 'unknown';
     const a = calculateExperience(d);
     if (a.kind !== 'blocked-search') throw new Error('Programa desconhecido não pode concluir o cenário.');
-    expect(a.referencePreview?.hypotheticalConditions.join(' ')).toContain('ads:');
+    expect(a.referencePreview?.hypotheticalConditions.join(' ')).toContain('Ads Fácil:');
     expect(d.fields.ads).toBe('unknown');
     d.fields.ads = 'inactive'; d.ux!.shipping = 'unknown';
     const b = calculateExperience(d);
