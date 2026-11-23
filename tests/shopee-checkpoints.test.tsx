@@ -21,7 +21,8 @@ describe('UX V4 — conferência de condições da Shopee sem repetir todas as p
     const draft = newCalculationDraft(new Date(2026, 10, 22));
     const checks = shopeeCheckpoints(draft, bundledTables);
     expect(checks.map(check => check.id)).toEqual(['shop-seller', 'shop-programs', 'shop-shipping']);
-    expect(checks.filter(check => check.state === 'pending')).toHaveLength(3);
+    expect(checks.filter(check => check.state === 'pending')).toHaveLength(1);
+    expect(checks.filter(check => check.state === 'review')).toHaveLength(2);
     expect(draft.fields.returns).toBe('unknown');
     expect(draft.ux?.shipping).toBe('unknown');
   });
@@ -38,7 +39,7 @@ describe('UX V4 — conferência de condições da Shopee sem repetir todas as p
     draft.ux!.shipping = 'unknown';
     draft.fields.shippingConfirmed = false;
     const checks = shopeeCheckpoints(draft, bundledTables);
-    expect(checks.filter(check => check.state === 'pending').map(check => check.id)).toEqual(['shop-volume', 'shop-shipping']);
+    expect(checks.filter(check => check.state === 'review').map(check => check.id)).toEqual(['shop-volume', 'shop-shipping']);
   });
 
   it('exatamente no limite dos 90 dias exige revisão, sem afirmar cobrança automática', () => {
@@ -52,9 +53,9 @@ describe('UX V4 — conferência de condições da Shopee sem repetir todas as p
     let draft = declarePrograms(readyCpf(), 'none');
     draft = changeScenarioDate(draft, '2026-11-23');
     const checks = shopeeCheckpoints(draft, bundledTables);
-    expect(checks.find(check => check.id === 'shop-programs')?.state).toBe('pending');
-    expect(checks.find(check => check.id === 'shop-volume')?.state).toBe('pending');
-    expect(checks.find(check => check.id === 'shop-shipping')?.state).toBe('pending');
+    expect(checks.find(check => check.id === 'shop-programs')?.state).toBe('review');
+    expect(checks.find(check => check.id === 'shop-volume')?.state).toBe('review');
+    expect(checks.find(check => check.id === 'shop-shipping')?.state).toBe('review');
   });
 
   it('um programa ativo não é confundido com tarifa conhecida ou com adesão desconhecida', () => {
@@ -64,7 +65,7 @@ describe('UX V4 — conferência de condições da Shopee sem repetir todas as p
     expect(checks.find(check => check.id === 'shop-programs')?.state).toBe('review');
     expect(checks.find(check => check.id === 'shop-programs')?.detail).toContain('cobrança ainda depende');
     draft.fields.affiliates = 'unknown';
-    expect(shopeeCheckpoints(draft, bundledTables).find(check => check.id === 'shop-programs')?.state).toBe('pending');
+    expect(shopeeCheckpoints(draft, bundledTables).find(check => check.id === 'shop-programs')?.state).toBe('review');
   });
 
   it('seleção de frete exige confirmação e número válido, sem converter desconhecido em zero', () => {
@@ -77,7 +78,7 @@ describe('UX V4 — conferência de condições da Shopee sem repetir todas as p
     draft.fields.shipping = '4.50';
     expect(shopeeCheckpoints(draft, bundledTables).find(check => check.id === 'shop-shipping')?.state).toBe('answered');
     draft.ux!.shipping = 'unknown';
-    expect(shopeeCheckpoints(draft, bundledTables).find(check => check.id === 'shop-shipping')?.state).toBe('pending');
+    expect(shopeeCheckpoints(draft, bundledTables).find(check => check.id === 'shop-shipping')?.state).toBe('review');
   });
 
   it('contagem exata informada é mostrada como usada, não como Não sei', () => {
