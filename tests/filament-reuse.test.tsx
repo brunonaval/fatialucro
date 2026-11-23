@@ -61,7 +61,8 @@ describe('reutilização segura de custos de filamento após importar 3MF', () =
   it('não aplica perfil de material diferente, inválido, gratuito ou excluído', () => {
     const imported = importedPlate(oneUsed);
     const deleted = { ...profile(), deletedAt: '2026-11-23T12:01:00Z' };
-    const bad = profile('PLA', '', 'bad');
+    const bad = profile('PLA', '125', 'bad');
+    bad.draft.ux!.filament.amount = ''; // Simulate a previously saved but now invalid legacy profile.
     expect(matchingFilamentProfiles(imported, [profile('PETG'), deleted, bad, profile('PLA', '0', 'zero')])).toEqual([]);
   });
 
