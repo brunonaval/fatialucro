@@ -1,51 +1,74 @@
-# FatiaLucro — atualizações seguras no próprio aplicativo
+# FatiaLucro — atualização automática assinada (Tauri 2)
 
-**Estado em 23/11/2026:** a versão 0.1.1 passa a oferecer **Configurações → Buscar atualizações**, consultando manualmente `https://api.github.com/repos/brunonaval/fatialucro/releases/latest`. **Ainda não instala versões automaticamente.** A versão 0.1.0, já instalada, nunca recebeu um atualizador, então pelo menos uma instalação de transição é inevitável.
+**Estado:** implementação do aplicativo e do pipeline preparada na branch `feat/pricing-engine-v01`. A ativação exige uma única configuração do proprietário: assinatura criptográfica. **Até a primeira release assinada, o instalador atual 0.1.2 continua sem atualização automática.**
 
-## Por que não instalar automaticamente agora?
+## Objetivo
 
-A aplicação não possui o `tauri-plugin-updater` nem uma chave pública de assinatura incorporada, e o repositório ainda não possui nenhuma GitHub Release estável publicada. Releases do GitHub Actions são artefatos temporários e **não são um canal de atualização**. Baixar um executável externo e iniciá-lo sem verificar a assinatura não é aceitável.
+Depois da instalação inicial de transição para a **primeira release assinada (0.2.0)**:
 
-O plugin oficial Tauri 2 exige verificação criptográfica de cada pacote de atualização. Esse requisito não pode ser desativado. A chave privada de assinatura não deve ser publicada no repositório, anexada a uma issue, enviada no chat ou incluída em backups do programa.
+1. Em **Configurações → Atualizações → Buscar atualizações**, o FatiaLucro consulta o manifesto `latest.json` publicado no repositório.
+2. Se houver versão **maior**, mostra número e notas e habilita **Atualizar e reiniciar**.
+3. Ao confirmar, salva explicitamente o rascunho ativo no IndexedDB antes da saída.
+4. O Tauri baixa o pacote com progresso, valida a assinatura minisign e verifica que a versão assinada corresponde à versão anunciada.
+5. No Windows, inicia a instalação NSIS em modo `passive`, substituindo o mesmo produto e preservando os dados locais, e reabre o programa. O usuário pode precisar aceitar a elevação solicitada pelo Windows dependendo do tipo de instalação.
 
-Fontes:
-- https://v2.tauri.app/plugin/updater/
-- https://v2.tauri.app/reference/javascript/updater/
+O usuário não precisa baixar ZIPs nem abrir o GitHub para versões futuras. **Nenhum download ou instalação acontece automaticamente sem o clique do usuário.**
 
-## O que já está implementado na versão 0.1.1
+## Uma única configuração que deve ser feita pelo proprietário
 
-- Botão **Buscar atualizações** disponível nas Configurações, acionado manualmente.
-- Leitura somente do endpoint oficial do repositório GitHub, sem telemetria e sem enviar preços, arquivos 3MF ou dados da loja.
-- Comparação numérica de versões SemVer e rejeição de prereleases ou páginas de release fora do repositório.
-- Quando não existe release, mensagem clara; quando existe uma versão estável maior, acesso à página oficial, sem executar o instalador automaticamente.
-- Versão do aplicativo explícita e incremento para 0.1.1; nenhum dado local precisa ser apagado.
+No computador Windows com o código do projeto e `npm ci` já executado, abra PowerShell na pasta do projeto. Gere o par de chaves, com senha forte:
 
-## Passos obrigatórios para habilitar atualização automática assinada
+```powershell
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.tauri" | Out-Null
+npm run tauri signer generate -- -w "$env:USERPROFILE\.tauri\fatialucro-updater.key"
+```
 
-1. **Gerar o par de chaves de atualização uma única vez**, no Windows do proprietário, dentro do diretório do projeto após instalar as dependências. Em PowerShell:
+O comando gera a chave privada `fatialucro-updater.key` e a chave pública `fatialucro-updater.key.pub`. **Nunca adicione a chave privada ao repositório, ao chat ou a qualquer arquivo do app. Faça um backup offline seguro da chave e de sua senha. Perder a chave impedirá que as instalações existentes aceitem novas atualizações.**
 
-   `npm run tauri signer generate -- -w "$env:USERPROFILE\\fatialucro-updater.key"`
+Em `https://github.com/brunonaval/fatialucro/settings/secrets/actions`:
 
-   Use senha forte e mantenha o arquivo `fatialucro-updater.key` somente em armazenamento privado. A chave pública correspondente pode ser compartilhada; a privada nunca.
+- **New repository secret** → `TAURI_SIGNING_PRIVATE_KEY` → cole o **conteúdo integral da chave privada** (não o nome do arquivo).
+- **New repository secret** → `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` → informe a senha da chave, se configurada.
 
-2. **Configurar o repositório no GitHub** (Settings → Secrets and variables → Actions), cadastrando os secrets `TAURI_SIGNING_PRIVATE_KEY` (conteúdo da chave privada) e `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (senha, se criada). Somente o proprietário do repositório deve executar este procedimento. Fazer backup seguro da chave.
+Em `https://github.com/brunonaval/fatialucro/settings/variables/actions`:
 
-3. **Integrar a chave pública e o plugin oficial** na próxima versão de transição, mantendo dependências fixas e pinando as capacidades:
-   - npm: `@tauri-apps/plugin-updater`
-   - Cargo: `tauri-plugin-updater`
-   - `src-tauri/src/lib.rs`: inicializar o plugin
-   - `src-tauri/tauri.conf.json`: configurar `plugins.updater.pubkey`, endpoint HTTPS `https://github.com/brunonaval/fatialucro/releases/latest/download/latest.json`, `bundle.createUpdaterArtifacts: true`
-   - Capabilities Tauri: permitir somente as operações de consulta, download e instalação de atualizações; não adicionar shell irrestrito
-   - Interface: verificar via `check()`, exibir versão/alterações, solicitar confirmação explícita, fazer backup do rascunho, baixar `downloadAndInstall()` com progresso, informar que o app irá reiniciar no Windows.
+- **New repository variable** → `TAURI_UPDATER_PUBLIC_KEY` → cole o conteúdo integral de `fatialucro-updater.key.pub` (duas linhas, começando por `untrusted comment:`).
 
-4. **CI/CD de release**: somente para tag de versão aprovada a partir de `main`, construir NSIS Windows com os secrets de assinatura, publicar `.exe`, `.sig` e `latest.json` contendo a assinatura real e URL do instalador em GitHub Releases, validar assinatura e versão antes de publicação.
+> A chave pública não é segredo e pode ser usada no build. A chave privada só é lida pelo GitHub Actions durante a publicação de releases; o aplicativo instalado contém somente a pública.
 
-5. **Homologação:** instalar uma vez a primeira versão com updater embutido (por exemplo 0.2.0). A partir daí, publicar uma versão posterior (por exemplo 0.2.1) e confirmar que **Buscar atualizações → Instalar e reiniciar** funciona sem instalar manualmente ZIP/EXE. Em caso de falha de rede, assinatura inválida ou falta de permissão, preservar dados e permitir nova tentativa.
+**Não é necessário enviar nenhuma chave pelo ChatGPT.** Depois da configuração, basta informar que os três nomes foram cadastrados (sem seus valores).
 
-### Restrições importantes
+## Processo de publicação das próximas versões
 
-- **Não ativar atualização silenciosa automática sem consentimento.** A verificação pode ser iniciada manualmente; o download e a instalação precisam de confirmação.
-- A assinatura do updater é separada da assinatura Authenticode do Windows/SmartScreen. Uma atualização criptograficamente verificada pelo Tauri pode continuar gerando advertências do Windows se o executável não tiver assinatura de código.
-- Não considerar `latest.json` como prova de uma versão até a assinatura do artefato ter sido validada.
-- Não publicar versão estável ou promover o PR apenas porque o build automatizado passou.
-- Se os segredos não estiverem presentes, a publicação de atualizações assinadas precisa falhar; jamais voltar a executar instaladores sem assinatura.
+- As mudanças de código ficam na branch experimental e são verificadas pelo CI. A `main` não é modificada automaticamente.
+- Depois da homologação e de incrementar a versão em `package.json`, `package-lock.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` e `src-tauri/Cargo.lock`, uma versão aprovada é promovida à branch `release`.
+- O GitHub Actions executa automaticamente `.github/workflows/publish-signed.yml` em cada push à `release`.
+- Sem chave privada ou pública, **o workflow falha ANTES de publicar** qualquer release.
+- Com as chaves, executa CI, build Windows `--features signed-updater`, cria artefatos NSIS assinados e publica uma release estável `vX.Y.Z`, com `latest.json` e assinatura `.sig`.
+- O botão instalado sempre consulta `https://github.com/brunonaval/fatialucro/releases/latest/download/latest.json` e não os ZIPs temporários do Actions.
+- O workflow não republica versões com o mesmo tag; cada atualização requer aumento de versão.
+
+## Compilações de teste versus versão assinada
+
+O build QA comum, inclusive o do PR, é intencionalmente compilado **sem** `signed-updater` e sem permissões de instalação. Nele, **Buscar atualizações** apenas verifica se há versão oficial disponível, sem iniciar instaladores.
+
+A release assinada é compilada com configuração e capacidade separadas. Essa separação impede que um build de testes use um canal de update inseguro.
+
+## Testes de aceitação obrigatórios
+
+1. Configure as chaves e execute um primeiro build **0.2.0** da branch `release`. Confira no GitHub Release a presença de `latest.json`, instalador `.exe` e assinatura correspondente `.sig`.
+2. Instale o 0.2.0 uma única vez pelo instalador oficial, substituindo a antiga 0.1.2. Antes, faça backup dos registros.
+3. Clique em **Buscar atualizações** com 0.2.0 instalado. Sem release mais nova, deve informar **Seu FatiaLucro está na versão mais recente disponível**.
+4. Publique uma versão **0.2.1** com uma alteração visível, usando a mesma chave. Clique novamente em **Buscar atualizações** no 0.2.0. Deve exibir 0.2.1 e notas, depois **Atualizar e reiniciar**.
+5. Confirme. O aplicativo deve preservar o rascunho, verificar a assinatura, instalar e voltar na versão 0.2.1. Os dados da oficina, histórico e perfis devem continuar íntegros.
+6. Verifique tratamento de rede desconectada, erro 404, manifesto manipulado, arquivo com assinatura incorreta, cancelamento de UAC e tentativa de downgrade. Nenhuma instalação inválida pode ser aceita.
+
+**Não declarar o atualizador como homologado até esses testes reais do Windows passarem.**
+
+## Segurança e observações
+
+- A assinatura Tauri valida a origem do pacote; não substitui assinatura Windows Authenticode (SmartScreen pode alertar).
+- `latest.json` não autoriza downgrade e `requireSignedVersion` exige vinculação da assinatura à versão do pacote, compatível com Tauri moderno.
+- Os dados de impressão e da loja não são enviados para o serviço de atualização.
+- A instalação usa o mesmo identificador `com.fatialucro.desktop`, preservando armazenamento local.
+- Links técnicos: https://v2.tauri.app/plugin/updater/ e https://v2.tauri.app/distribute/pipelines/github/

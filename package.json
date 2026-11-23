@@ -1,6 +1,6 @@
 {
   "name": "fatialucro",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "private": true,
   "description": "Calculadora offline e auditável de precificação para impressão 3D",
   "license": "MIT",
@@ -23,7 +23,9 @@
     "fast-xml-parser": "5.12.1",
     "fflate": "0.8.3",
     "react": "19.3.1",
-    "react-dom": "19.3.1"
+    "react-dom": "19.3.1",
+    "@tauri-apps/api": "2.12.5",
+    "@tauri-apps/plugin-updater": "2.14.1"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
