@@ -3,7 +3,7 @@ name: Validate and build
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, qa/shopee-price-ux-20261123]
   workflow_dispatch:
     inputs:
       build_windows:
@@ -33,7 +33,7 @@ jobs:
       - run: npm audit --audit-level=high
 
   windows:
-    if: github.event_name == 'workflow_dispatch' && inputs.build_windows
+    if: (github.event_name == 'workflow_dispatch' && inputs.build_windows) || (github.event_name == 'push' && github.ref == 'refs/heads/qa/shopee-price-ux-20261123')
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
