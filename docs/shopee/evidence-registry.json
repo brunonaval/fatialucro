@@ -1,0 +1,114 @@
+{
+  "auditVersion": "0.4-revisao-de-capturas",
+  "auditPackageSha256": "486a7f2c09349f08e87227b62c186aad11f66be0eb02b446dd644f8e711758ec",
+  "status": "local-archived-documents-checked",
+  "sources": [
+    {
+      "auditSourceId": "16",
+      "officialUrl": "https://seller.shopee.com.br/edu/article/26700/Devolucao-Facil-Shopee",
+      "capturedAt": "2026-11-22",
+      "publishedAsRecorded": "22-04-2026",
+      "updatedAsRecorded": "17 de agosto de 2026",
+      "declaredHtmlSha256": "a5aa87382be4aeba0657f54cda135fbcab12734985754dc3934f2fb933131084",
+      "effectiveFrom": null,
+      "originalHtmlAvailable": true,
+      "hashIndependentlyRecomputed": true,
+      "reviewedAt": "2026-11-22",
+      "reviewMethod": "HTML MIME decodificado: SHA-256 recomputado e trechos relevantes lidos localmente; capturas arquivadas, sem reverificacao de vigencia ao vivo."
+    },
+    {
+      "auditSourceId": "25",
+      "officialUrl": "https://seller.shopee.com.br/edu/article/27298",
+      "capturedAt": "2026-11-22",
+      "publishedAsRecorded": "23-03-2026",
+      "updatedAsRecorded": "",
+      "declaredHtmlSha256": "7a9c4a927ac6b4c1d11c63aa6b8ee2a08d6cf56024a399cc48f6e639b8f367d0",
+      "effectiveFrom": null,
+      "originalHtmlAvailable": true,
+      "hashIndependentlyRecomputed": true,
+      "reviewedAt": "2026-11-22",
+      "reviewMethod": "HTML MIME decodificado: SHA-256 recomputado e trechos relevantes lidos localmente; capturas arquivadas, sem reverificacao de vigencia ao vivo."
+    },
+    {
+      "auditSourceId": "61",
+      "officialUrl": "https://seller.shopee.com.br/edu/article/18712/pacotes-de-campanhas-shopee",
+      "capturedAt": "2026-11-22",
+      "publishedAsRecorded": "23-04-2026",
+      "updatedAsRecorded": "23 de outubro de 2026",
+      "declaredHtmlSha256": "d9fb6b1e765d81b72795b599df00903f3246d2ffe62eb5c2f888d7192d548733",
+      "effectiveFrom": null,
+      "originalHtmlAvailable": true,
+      "hashIndependentlyRecomputed": true,
+      "reviewedAt": "2026-11-22",
+      "reviewMethod": "HTML MIME decodificado: SHA-256 recomputado e trechos relevantes lidos localmente; capturas arquivadas, sem reverificacao de vigencia ao vivo."
+    },
+    {
+      "auditSourceId": "77",
+      "officialUrl": "https://seller.shopee.com.br/edu/article/19426/tudo-sobre-minha-renda",
+      "capturedAt": "2026-11-22",
+      "publishedAsRecorded": "24-03-2026",
+      "updatedAsRecorded": "02 de setembro de 2026",
+      "declaredHtmlSha256": "2b11a566cc83cb6b2cc3b027d8a4573c2df018d1f49de33da9a8b19fd179ec6e",
+      "effectiveFrom": null,
+      "originalHtmlAvailable": true,
+      "hashIndependentlyRecomputed": true,
+      "reviewedAt": "2026-11-22",
+      "reviewMethod": "HTML MIME decodificado: SHA-256 recomputado e trechos relevantes lidos localmente; capturas arquivadas, sem reverificacao de vigencia ao vivo."
+    },
+    {
+      "auditSourceId": "80",
+      "officialUrl": "https://seller.shopee.com.br/edu/article/18484/como-funciona-o-adicional-de-comissao-para-vendedores-CPF",
+      "capturedAt": "2026-11-22",
+      "publishedAsRecorded": "01-03-2026",
+      "updatedAsRecorded": "21 de outubro de 2026",
+      "declaredHtmlSha256": "5ab9fa3648c396208637c52310f55442581f8d3069ebbb377195ece278e8ea8e",
+      "effectiveFrom": null,
+      "originalHtmlAvailable": true,
+      "hashIndependentlyRecomputed": true,
+      "reviewedAt": "2026-11-22",
+      "reviewMethod": "HTML MIME decodificado: SHA-256 recomputado e trechos relevantes lidos localmente; capturas arquivadas, sem reverificacao de vigencia ao vivo."
+    },
+    {
+      "auditSourceId": "81",
+      "officialUrl": "https://seller.shopee.com.br/edu/article/18483/como-funciona-a-politica-de-comissao-para-vendedores-shopee",
+      "capturedAt": "2026-11-22",
+      "publishedAsRecorded": "01-03-2026",
+      "updatedAsRecorded": "21 de outubro de 2026",
+      "declaredHtmlSha256": "7655cf79ce99626c18edc1c29e4542f6fccc4324205dc384e3a4830454a73f4a",
+      "effectiveFrom": null,
+      "originalHtmlAvailable": true,
+      "hashIndependentlyRecomputed": true,
+      "reviewedAt": "2026-11-22",
+      "reviewMethod": "HTML MIME decodificado: SHA-256 recomputado e trechos relevantes lidos localmente; capturas arquivadas, sem reverificacao de vigencia ao vivo."
+    },
+    {
+      "auditSourceId": "82",
+      "officialUrl": "https://seller.shopee.com.br/edu/article/26839/Comissao-para-vendedores-CNPJ-e-CPF-em-2026",
+      "capturedAt": "2026-11-22",
+      "publishedAsRecorded": "18-09-2026",
+      "updatedAsRecorded": "01 de outubro de 2026",
+      "declaredHtmlSha256": "331dcf3b8d741697532ae52a8e9399c567e255a29893ad97f3c2c23c03a3d0b5",
+      "effectiveFrom": null,
+      "originalHtmlAvailable": true,
+      "hashIndependentlyRecomputed": true,
+      "reviewedAt": "2026-11-22",
+      "reviewMethod": "HTML MIME decodificado: SHA-256 recomputado e trechos relevantes lidos localmente; capturas arquivadas, sem reverificacao de vigencia ao vivo."
+    }
+  ],
+  "boundaryRecheck": {
+    "method": "Releitura MIME do HTML e OCR local das tabelas/exemplo incorporados, sem navegador ou captura de tela. Mesmos hashes HTML conferidos novamente.",
+    "reviewedAt": "2026-11-22",
+    "tableRevision": "2026-11-22.2",
+    "resolved": [
+      "500.00"
+    ],
+    "unresolved": [
+      "80.00",
+      "100.00",
+      "200.00"
+    ],
+    "exampleSource": "18483",
+    "exampleAssetSha256": "925a3a83feae392e6afbb04d9bce32c96d332c20a901a01aac2a4792f5b3a753",
+    "conclusion": "Exemplo oficial de 500 com comissao basica de 96 e liquido 404. Subsidios/frete nao comprovam a comissao nas demais fronteiras. Sem prova de vigencia inicial ou continuidade ao vivo."
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "provenance": "Síntese anônima dos seis exemplos do pacote de auditoria 0.4, seção 9 e casos_extratos_historicos.json. Imagens e extratos primários não disponibilizados neste pacote.",
+  "cases": [
+    { "id": "june-25", "orderGross": "25.00", "unitPrice": "25.00", "quantity": 1, "calculated": "10.37", "observed": "10.37", "difference": "0.00" },
+    { "id": "june-15", "orderGross": "15.00", "unitPrice": "15.00", "quantity": 1, "calculated": "8.02", "observed": "8.02", "difference": "0.00" },
+    { "id": "june-20", "orderGross": "20.00", "unitPrice": "20.00", "quantity": 1, "calculated": "9.19", "observed": "9.19", "difference": "0.00" },
+    { "id": "june-17", "orderGross": "17.00", "unitPrice": "17.00", "quantity": 1, "calculated": "8.49", "observed": "8.49", "difference": "0.00" },
+    { "id": "june-two-units", "orderGross": "23.90", "unitPrice": "11.95", "quantity": 2, "calculated": "14.11", "observed": "14.11", "difference": "0.00" },
+    { "id": "june-7-90-unresolved", "orderGross": "7.90", "unitPrice": "7.90", "quantity": 1, "calculated": "6.35", "observed": "6.30", "difference": "0.05" }
+  ]
+}

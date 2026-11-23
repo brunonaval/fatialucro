@@ -1,39 +1,64 @@
-name: Windows installer (manual)
+name: Validate and build
 
 on:
+  pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       build_windows:
-        description: 'Gerar instalador Windows (selecione feat/pricing-engine-v01 em Use workflow from)'
+        description: 'Gerar instalador Windows para homologação (somente quando solicitado)'
         type: boolean
         required: false
         default: false
 
+concurrency:
+  group: validate-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
-concurrency:
-  group: windows-manual-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
-  windows:
-    if: github.event_name == 'workflow_dispatch' && inputs.build_windows == true && github.ref == 'refs/heads/feat/pricing-engine-v01'
-    runs-on: windows-latest
+  validate:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: npm
-      - name: Select Rust stable MSVC
-        shell: pwsh
-        run: rustup default stable-msvc
       - run: npm ci
-      - name: Build Windows installer on GitHub
-        run: npm run tauri -- build --ci -- --locked
+      - run: npm run check
+      - run: npm audit --audit-level=high
+
+  windows:
+    if: github.event_name == 'workflow_dispatch' && inputs.build_windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install Rust stable (MSVC)
+        shell: pwsh
+        run: |
+          rustup default stable-msvc
+          rustup component add rustfmt clippy
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: windows-rust-${{ hashFiles('src-tauri/Cargo.toml', 'src-tauri/Cargo.lock') }}
+          restore-keys: windows-rust-
+      - run: npm ci
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+      - run: npm run build
+      - run: cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      - run: npm run tauri -- build --ci -- --locked
       - uses: actions/upload-artifact@v7
         with:
           name: FatiaLucro-windows-x64-review
