@@ -74,15 +74,22 @@ describe('Prévia orientativa sem alterar declarações da Shopee', () => {
     if (result.kind !== 'blocked-search') return;
     expect(result.referencePreview).toMatchObject({ lower: '23.05', upper: '23.05', returnsUnconfirmed: false });
   });
-  it('programa adicional ou frete desconhecido não ganha preço fictício', () => {
+  it('não sei produz simulação identificada, sem confirmar cobranças nem alterar as respostas', () => {
     const d = capturedScenario(); d.fields.ads = 'unknown';
     const a = calculateExperience(d);
     if (a.kind !== 'blocked-search') throw new Error('Programa desconhecido não pode concluir o cenário.');
-    expect(a.referencePreview).toBeUndefined();
+    expect(a.referencePreview?.hypotheticalConditions.join(' ')).toContain('ads:');
+    expect(d.fields.ads).toBe('unknown');
     d.fields.ads = 'inactive'; d.ux!.shipping = 'unknown';
     const b = calculateExperience(d);
     if (b.kind !== 'blocked-search') throw new Error('Frete desconhecido não pode concluir o cenário.');
-    expect(b.referencePreview).toBeUndefined();
+    expect(b.referencePreview?.hypotheticalConditions.join(' ')).toContain('Frete desconhecido');
+    expect(d.ux!.shipping).toBe('unknown');
+    d.ux!.shipping = 'no';
+    d.ux!.volume = { answer: 'unknown', threshold: 450, date: '2026-11-23' };
+    const v = calculateExperience(d);
+    if (v.kind !== 'blocked-search') throw new Error('O volume desconhecido não pode determinar lucro.');
+    expect(v.referencePreview?.hypotheticalConditions.join(' ')).toContain('Volume de pedidos desconhecido');
   });
   it('se o cliente definiu manualmente uma faixa abaixo de 12, não afirma preço mínimo seguro', () => {
     const d = capturedScenario(); d.fields.minPrice = '10';
