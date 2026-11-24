@@ -10,6 +10,7 @@ import { useExperience } from './ExperienceContext';
 import { CostMetrics, FinancialMetrics, PendingQuestions } from './FinancialSummary';
 import { tariffHints } from '../app/tariff-hints';
 import { GuidedIssues } from './GuidedIssues';
+import { ProgramEstimate } from './ProgramEstimate';
 import type { GuidedIssue } from './guided-validation';
 import type { ShopeeTable } from '../marketplaces/catalogs/types';
 
@@ -66,6 +67,7 @@ export function ExperienceResult({ state, frozen, onConfirm, onResolve, onSell, 
     {demo && <p className="notice">Demonstração com dados fictícios. Estes valores não descrevem sua oficina e não serão salvos como dados reais.</p>}
     {sale ? <FinancialMetrics output={output} advanced={ux.mode === 'advanced'} /> : preview && <CostMetrics preview={preview} />}
     {sale?.searchRange?.automaticFloor && <p className="help-box">Preço mínimo encontrado a partir de {currency(sale.searchRange.automaticFloor)}. Não afirmamos que seja o menor preço possível abaixo dessa faixa, onde a cobrança CPF é desconhecida.</p>}
+    {output.referencePreview && <ProgramEstimate estimate={output.referencePreview} />}
     {partial && <PendingQuestions pending={sale!.result.pending} {...(onResolve ? { onResolve } : {})} />}
     {partial && <p>Lucro final indisponível enquanto houver cobranças desconhecidas.</p>}
     {sale?.result.confidence === 'provisional' && <p className="notice">Algumas regras usadas ainda precisam ser confirmadas com a Shopee. As hipóteses estão identificadas no cálculo completo.</p>}

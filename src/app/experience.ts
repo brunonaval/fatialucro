@@ -105,7 +105,8 @@ export function calculateExperience(draft: CalculatorDraft, tables: readonly Sho
     const catalog = { ...selected, assumptions }; const result = calculatePricing({ ...data.input, unitPrice }, catalog);
     return { kind: 'sale', draft: updated, data: { ...data, input: { ...data.input, unitPrice }, catalog, result } };
   }
-  return { kind: 'sale', draft: normalized, data };
+  const directReference = text(normalized, 'calculation') === 'direct' && data.result.status === 'partial' ? referencePricePreview(normalized, tables) : null;
+  return { kind: 'sale', draft: normalized, data, ...(directReference ? { referencePreview: directReference } : {}) };
 }
 export function calculationSignature(draft: CalculatorDraft): string {
   const ux = draft.ux;

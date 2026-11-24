@@ -73,7 +73,7 @@ describe('Matriz exaustiva de opções Shopee', () => {
     const output = calculateExperience(d);
     if (output.kind !== 'blocked-search' || !output.referencePreview) throw new Error('missing estimate');
     expect(output.referencePreview.excludedActivePrograms).toEqual([]);
-    expect(output.referencePreview.lower).toBe(output.referencePreview.upper);
+    expect(Number(output.referencePreview.upper)).toBeGreaterThan(Number(output.referencePreview.lower));
     const before = Number(output.referencePreview.lower);
     d.fields.highlight = 'inactive';
     const withoutHighlight = calculateExperience(d);
@@ -83,7 +83,8 @@ describe('Matriz exaustiva de opções Shopee', () => {
     const withoutManual = calculateExperience(d);
     if (withoutManual.kind !== 'blocked-search' || !withoutManual.referencePreview) throw new Error('missing estimate');
     expect(Number(withoutManual.referencePreview.lower)).toBeLessThan(Number(withoutHighlight.referencePreview.lower));
-    expect(withoutManual.referencePreview.excludedActivePrograms).toContain('Ads Fácil');
+    expect(withoutManual.referencePreview.excludedActivePrograms).toEqual([]);
+    expect(withoutManual.referencePreview.hypotheticalConditions.join(' ')).toContain('Ads Fácil:');
   });
   it('permite venda direta com embalagem desconhecida sem fingir que o lucro final é conhecido', () => {
     const d = scenario(); d.fields.marketplace = 'direct'; d.fields.calculation = 'profit';

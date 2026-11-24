@@ -20,6 +20,7 @@ export interface ReferencePricePreview {
   excludedActivePrograms: string[];
   example?: PricingResult;
   exampleUnitPrice?: string;
+  profitRange?: { lower: string; upper: string };
 }
 
 /** A separate, non-persisted illustration. Never turns an unknown actual charge
@@ -29,7 +30,8 @@ export interface ReferencePricePreview {
 export function referencePricePreview(draft: CalculatorDraft, tables: readonly ShopeeTable[]): ReferencePricePreview | null {
   const channel = text(draft, 'marketplace');
   if (!['direct', 'shopee'].includes(channel) ||
-      !['profit', 'margin', 'equilibrium'].includes(text(draft, 'calculation')) || !draft.ux) return null;
+      !['direct', 'profit', 'margin', 'equilibrium'].includes(text(draft, 'calculation')) || !draft.ux) return null;
+  const directPrice = text(draft, 'calculation') === 'direct';
   const shopee = channel === 'shopee';
   const seller = text(draft, 'seller');
   if (shopee && !['CPF', 'CNPJ'].includes(seller)) return null;
@@ -90,6 +92,7 @@ export function referencePricePreview(draft: CalculatorDraft, tables: readonly S
   let minimumStart: string | null = null;
   let maximumEnd: string | null = null;
   let unreachableScenarios = 0;
+  const profits: string[] = [];
   let example: PricingResult | undefined;
   let exampleUnitPrice: string | undefined;
   try {
@@ -117,8 +120,16 @@ export function referencePricePreview(draft: CalculatorDraft, tables: readonly S
         if (seller === 'CPF' && table.cpf.fixedConflict) review.push('precedence');
         illustration = acceptHypotheses(illustration, table.id, review);
       }
-      illustration.fields.price = text(illustration, 'maxPrice');
+      if (!directPrice) illustration.fields.price = text(illustration, 'maxPrice');
       const calculation = calculateWorkspace(illustration, tables, referenceDiscountGross);
+      if (directPrice) {
+        if (calculation.result.status !== 'complete' || calculation.result.operatingProfit === null) return null;
+        const price = calculation.input.unitPrice;
+        prices.push(price); profits.push(calculation.result.operatingProfit);
+        minimumStart = maximumEnd = price;
+        if (!example || Number(calculation.result.operatingProfit) < Number(example.operatingProfit)) { example = calculation.result; exampleUnitPrice = price; }
+        continue;
+      }
       const solution = calculation.solution;
       minimumStart = calculation.searchRange?.min ?? null;
       maximumEnd = calculation.searchRange?.max ?? null;
@@ -130,7 +141,7 @@ export function referencePricePreview(draft: CalculatorDraft, tables: readonly S
     }
     const sorted = prices.sort((a, b) => Number(a) - Number(b));
     if (!minimumStart || !maximumEnd) return null;
-    return { lower: sorted[0] ?? null, upper: sorted.at(-1) ?? null, unreachableScenarios, searchEnd: maximumEnd, returnsUnconfirmed: returnsUnknown, searchStart: minimumStart, hypotheticalConditions, excludedActivePrograms, ...(example && exampleUnitPrice ? { example, exampleUnitPrice } : {}) };
+    return { lower: sorted[0] ?? null, upper: sorted.at(-1) ?? null, unreachableScenarios, searchEnd: maximumEnd, returnsUnconfirmed: returnsUnknown, searchStart: minimumStart, hypotheticalConditions, excludedActivePrograms, ...(example && exampleUnitPrice ? { example, exampleUnitPrice } : {}), ...(profits.length ? { profitRange: { lower: [...profits].sort((a,b)=>Number(a)-Number(b))[0]!, upper: [...profits].sort((a,b)=>Number(b)-Number(a))[0]! } } : {}) };
   } catch {
     return null;
   }
