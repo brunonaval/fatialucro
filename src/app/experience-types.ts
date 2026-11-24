@@ -8,6 +8,8 @@ export interface ImportOrigin {
 import type { ProgramPricing } from '../marketplaces/shopee/programs';
 export interface ExperienceState {
   programPricing?: ProgramPricing;
+  manualProduction?: { enabled: boolean; amount: string };
+  advertisingPercent?: string;
   version: 2;
   entry: 'none' | 'manual' | 'import' | 'example';
   intent: 'cost' | 'sale'; mode: 'simple' | 'advanced'; stage: 'print' | 'costs' | 'sale' | 'result';

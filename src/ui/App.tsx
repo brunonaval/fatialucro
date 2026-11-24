@@ -36,13 +36,17 @@ import { CalculationNavigation, StageActions } from './CalculationNavigation';
 import { applyFinalPrice, beginSale, changeScenarioDate } from '../app/ux-v3';
 import { guidedIssues } from './guided-validation';
 import type { GuidedIssue } from './guided-validation';
+import { QuickSimulation } from './QuickSimulation';
+import { CostSource } from './SharedQuickFields';
+import { beginQuick } from '../app/quick-simulation';
 import './style.css';
 
 type Page = 'calculate' | 'products' | 'settings';
 
 export function App() {
   const [draft, setDraft] = useState(() => newCalculationDraft()); const current = withExperience(draft); const ux = current.ux;
-  const [startGoal, setStartGoal] = useState<'profit' | 'cost' | 'sale'>('profit');
+  const [startGoal, setStartGoal] = useState<'profit' | 'cost' | 'sale'>('sale');
+  const [view, setView] = useState<'quick'|'detailed'>('quick');
   const [page, setPage] = useState<Page>('calculate'); const [ready, setReady] = useState(false); const [entries, setEntries] = useState<SavedEntry[]>([]);
   const [theme, setTheme] = useState<Theme>('system'); const [notice, setNotice] = useState(''); const [busy, setBusy] = useState(false);
   const [validationRequested, setValidationRequested] = useState(false);
@@ -84,7 +88,7 @@ export function App() {
   }, []);
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
   // Main navigation starts at the top. Only explicit correction links jump to a field.
-  useLayoutEffect(() => { focusPageStart(); }, [page]);
+  useLayoutEffect(() => { focusPageStart(); }, [page, view]);
   useEffect(() => {
     const target = focusTarget.current;
     if (!target) return;
@@ -93,7 +97,7 @@ export function App() {
       if (!focusCorrectionTarget(target)) focusCorrectionTarget(ux.stage + '-step');
     });
     return () => cancelAnimationFrame(frame);
-  }, [page, ux.stage, ux.entry]);
+  }, [page, view, ux.stage, ux.entry]);
   useEffect(() => {
     if (!ready || !repository.current || ux.entry === 'none' || example) return;
     let active = true; const repo = repository.current; setDraftStatus('Alterações aguardando salvamento…');
@@ -111,12 +115,14 @@ export function App() {
     if (page === next) focusPageStart();
     else setPage(next);
   }
+  function navigateCalculation(next: 'quick'|'detailed') { focusTarget.current=null; setView(next); navigatePage('calculate'); }
   function setStage(stage: typeof ux.stage) {
     if (stage === 'result' && issues.length > 0) setValidationRequested(true);
     focusTarget.current = stage + '-step';
     if (stage === ux.stage) { focusCorrectionTarget(focusTarget.current); focusTarget.current = null; }
     else update({ ...current, ux: { ...ux, stage } });
   }
+  function startQuick(source: 'manual'|'printing') { update(beginQuick(current, source, startGoal)); }
   function startWithGoal(next: CalculatorDraft) {
     const selected = withExperience(next);
     update({ ...selected, fields: { ...selected.fields, calculation: startGoal === 'profit' ? 'profit' : 'direct',
@@ -126,6 +132,10 @@ export function App() {
   function fixIssue(issue: GuidedIssue) {
     setValidationRequested(true);
     const target = 'field:' + issue.field;
+    if (view === 'quick') {
+      if (focusCorrectionTarget(target)) return;
+      setView('detailed'); focusTarget.current=target; update({...current,ux:{...ux,stage:issue.stage}}); return;
+    }
     if (issue.stage === ux.stage || ux.mode === 'advanced') {
       if (focusCorrectionTarget(target)) { focusTarget.current = null; return; }
     }
@@ -151,7 +161,7 @@ export function App() {
     setDraftStatus('Rascunho salvo antes da atualização.');
   }
   async function startNew() {
-    if (!await preserveDraft()) return; setStartGoal('profit');
+    if (!await preserveDraft()) return; setStartGoal(view === 'quick' ? 'sale' : 'profit');
     const fresh = workshopDefaults(newCalculationDraft(), realEntries); update({ ...fresh, ux: { ...withExperience(fresh).ux, mode: ux.mode } }); setEditing({}); setSavedKey(''); setValidationRequested(false); navigatePage('calculate'); setNotice('');
   }
   async function exploreExample() { if (!await preserveDraft()) return; update(exampleDraft()); setEditing({}); setSavedKey(''); setValidationRequested(false); navigatePage('calculate'); setNotice('Exemplo fictício isolado. Nenhum custo da sua oficina foi substituído.'); }
@@ -209,6 +219,7 @@ export function App() {
   }
   function resolvePending(target: string) {
     setValidationRequested(true);
+    if (view === 'quick') { if (focusCorrectionTarget(target)) return; setView('detailed'); }
     focusTarget.current = target;
     if (ux.stage === 'sale') {
       if (focusCorrectionTarget(target)) { focusTarget.current = null; return; }
@@ -221,14 +232,14 @@ export function App() {
   }
   function submit(event: FormEvent) { event.preventDefault(); automatic.runNow(); setValidationRequested(true); setStage('result'); }
   const show = (stage: typeof ux.stage) => ux.mode === 'advanced' || ux.stage === stage;
-  return <FormContext value={{ draft: current, setField, issues, showErrors: validationRequested }}><ExperienceContext value={{ draft: current, update, financial: automatic.state }}><main className="experience-app" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); setNotice("Solte o arquivo na área de importação ou use Selecionar arquivo."); }}>
+  return <FormContext value={{ draft: current, setField, issues, showErrors: validationRequested || (view==='quick' && ux.entry!=='none' && !example) }}><ExperienceContext value={{ draft: current, update, financial: automatic.state }}><main className="experience-app" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); setNotice("Solte o arquivo na área de importação ou use Selecionar arquivo."); }}>
     <a className="skip-link" href="#workspace-content">Pular para o conteúdo</a>
     <header className="app-header"><div><h1>Fatia<span>Lucro</span></h1><p>Saiba quanto custa imprimir e quanto sobra na venda</p></div><button type="button" className="text-button" onClick={() => { void startNew(); }} disabled={!ready}>Nova impressão</button></header>
-    <nav aria-label="Navegação principal">{([['calculate', 'Calcular'], ['products', 'Meus produtos'], ['settings', 'Configurações']] as const).map(([value, label]) => <button type="button" key={value} aria-current={page === value ? 'page' : undefined} className={page === value ? 'active' : 'secondary'} onClick={() => navigatePage(value)}>{label}</button>)}</nav>
+    <nav aria-label="Navegação principal">{([['quick','Simulação rápida'],['detailed','Simulação completa detalhada']] as const).map(([value,label])=><button key={value} type="button" aria-current={page==='calculate'&&view===value?'page':undefined} className={page==='calculate'&&view===value?'active':'secondary'} onClick={()=>navigateCalculation(value)}>{label}</button>)}{([['products', 'Meus produtos'], ['settings', 'Configurações']] as const).map(([value, label]) => <button type="button" key={value} aria-current={page === value ? 'page' : undefined} className={page === value ? 'active' : 'secondary'} onClick={() => navigatePage(value)}>{label}</button>)}</nav>
     <div id="workspace-content" tabIndex={-1}>
       {notice && <p className="message" role="status">{notice}</p>}{!ready && <p className="empty-state" role="status">Carregando seus dados locais…</p>}
       {page === 'calculate' ? <>
-        {ux.entry === 'none' ? <section className="welcome"><span className="step-label">Comece pela sua impressão</span><h2>Descubra o custo ou o preço sem formulários complicados.</h2><p>Escolha seu objetivo e importe o arquivo fatiado. Você pode calcular só o filamento sem configurar uma oficina.</p>
+        {view==='quick' ? ux.entry==='none' ? <section className="welcome quick-welcome"><span className="step-label">Comece pela sua impressão</span><h2>Quanto você vai lucrar?</h2><p>Comece pelo custo por peça ou importe sua impressão. Os mesmos dados estarão na aba detalhada.</p><fieldset className="quick-goals"><legend>O que você deseja descobrir?</legend><label><input type="radio" name="start-goal" checked={startGoal==='sale'} onChange={()=>setStartGoal('sale')}/>Já tenho um preço: quanto vou lucrar?</label><label><input type="radio" name="start-goal" checked={startGoal==='profit'} onChange={()=>setStartGoal('profit')}/>Quanto devo cobrar?</label><label><input type="radio" name="start-goal" checked={startGoal==='cost'} onChange={()=>setStartGoal('cost')}/>Quanto custa imprimir?</label></fieldset>{recovery&&<div className="recovery-card"><h3>Há um rascunho neste dispositivo</h3><button type="button" className="secondary" onClick={()=>{update(withExperience(recovery));setRecovery(null);setEditing({});setSavedKey('');}}>Continuar de onde parei</button></div>}<div className="start-alternatives"><button type="button" disabled={!ready} onClick={()=>startQuick('manual')}>Já sei meu custo por peça</button><button type="button" className="secondary" disabled={!ready} onClick={()=>startQuick('printing')}>Preencher manualmente — peso e tempo</button></div><PrintImport primary disabled={!ready} filaments={realEntries} draft={current} onApply={startWithGoal}/><button type="button" className="text-button" disabled={!ready} onClick={()=>{void exploreExample();}}>Experimentar com um exemplo fictício</button><button type="button" className="text-button" onClick={()=>{setShowWorkshop(true);navigatePage('settings');}}>Configurar minha oficina (opcional)</button></section> : <>{example&&<div className="example-banner"><strong>Exemplo fictício</strong><span>Não representa seus dados.</span><button type="button" className="secondary" onClick={()=>{void startNew();}}>Começar com meus dados</button></div>}<p className="draft-status" role="status">{example?'Demonstração isolada':draftStatus||'Seus dados ficam neste dispositivo'}</p><QuickSimulation entries={realEntries} tables={catalog.tables} state={automatic.state} issues={issues} onFix={fixIssue} onProfile={useProfile} onSaveFilament={value=>saveProfile(value,'filament')} onSaveShop={()=>{void saveShop();}} onSave={()=>{void saveResult();}} saved={savedKey===resultKey} onDetailed={()=>navigateCalculation('detailed')} onResolve={resolvePending} onRetry={automatic.runNow}/></> : ux.entry === 'none' ? <section className="welcome"><span className="step-label">Comece pela sua impressão</span><h2>Descubra o custo ou o preço sem formulários complicados.</h2><p>Escolha seu objetivo e importe o arquivo fatiado. Você pode calcular só o filamento sem configurar uma oficina.</p>
           <fieldset className="quick-goals"><legend>O que você deseja descobrir?</legend>
             <label><input type="radio" name="start-goal" checked={startGoal === 'profit'} onChange={() => setStartGoal('profit')} />Quanto devo cobrar?</label>
             <label><input type="radio" name="start-goal" checked={startGoal === 'cost'} onChange={() => setStartGoal('cost')} />Quanto custa imprimir?</label>
@@ -249,7 +260,7 @@ export function App() {
           </div>}
           <form onSubmit={submit} noValidate>
             {show('print') && <PrintStep filaments={realEntries} />}
-            {show('costs') && <section id="costs-step"><div className="section-heading"><span className="step-label">Custos</span><h2>Quanto custa fabricar esta peça?</h2><p>Para começar, informe somente o preço do filamento. Energia, máquina e trabalho são opcionais.</p></div><FilamentFields entries={realEntries} onProfile={useProfile} onSave={value => saveProfile(value, 'filament')} />{ux.mode === 'advanced' ? <PrinterFields entries={realEntries} onProfile={useProfile} /> : <details className="optional-costs"><summary>{ux.machineIncluded ? 'Energia e impressora incluídas — editar (opcional)' : 'Incluir energia e impressora (opcional)'}</summary><PrinterFields entries={realEntries} onProfile={useProfile} /></details>}{ux.intent === 'cost' && <details><summary>Incluir embalagem (opcional)</summary><PackagingFields /></details>}{ux.mode === 'advanced' ? <OptionalCosts /> : <details className="optional-costs"><summary>Mão de obra e outros custos (opcional)</summary><OptionalCosts /></details>}</section>}
+            {show('costs') && <section id="costs-step"><div className="section-heading"><span className="step-label">Custos</span><h2>Quanto custa fabricar esta peça?</h2><p>Para começar, informe somente o preço do filamento. Energia, máquina e trabalho são opcionais.</p></div><CostSource />{!ux.manualProduction?.enabled && <><FilamentFields entries={realEntries} onProfile={useProfile} onSave={value => saveProfile(value, 'filament')} />{ux.mode === 'advanced' ? <PrinterFields entries={realEntries} onProfile={useProfile} /> : <details className="optional-costs"><summary>{ux.machineIncluded ? 'Energia e impressora incluídas — editar (opcional)' : 'Incluir energia e impressora (opcional)'}</summary><PrinterFields entries={realEntries} onProfile={useProfile} /></details>}{ux.mode === 'advanced' ? <OptionalCosts /> : <details className="optional-costs"><summary>Mão de obra e outros custos (opcional)</summary><OptionalCosts /></details>}</>}{ux.intent === 'cost' && <details><summary>Incluir embalagem (opcional)</summary><PackagingFields /></details>}</section>}
             {ux.intent === 'sale' && show('sale') && <SaleStep tables={catalog.tables} onSaveShop={() => { void saveShop(); }} />}
             {show('result') && <ExperienceResult tables={catalog.tables} state={automatic.state} issues={issues} onFix={fixIssue} onConfirm={() => setStage('sale')} onResolve={resolvePending} onSell={() => update(beginSale(current))} onAdjustPrice={price => update(applyFinalPrice(current, price))} onSave={() => { void saveResult(); }} onRetry={automatic.runNow} saved={savedKey === resultKey} />}
             <StageActions ux={ux} onStage={setStage} />

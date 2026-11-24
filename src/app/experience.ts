@@ -3,7 +3,7 @@ import { D, decimal, money } from '../engine/decimal';
 import type { ManufacturingInput } from '../engine';
 import { calculateWorkspace } from './calculate';
 import type { CalculationOutput } from './calculate';
-import { buildManufacturing, buildScenario, defaultDraft, numeric, packagingInput, text, validateDraft } from './model';
+import { buildManufacturing, buildScenario, defaultDraft, expenseBreakdown, numeric, packagingInput, text, validateDraft } from './model';
 import type { CalculatorDraft } from './model';
 import type { ExperienceState } from './experience-types';
 import { bundledTables } from '../marketplaces/catalogs/bundled';
@@ -39,7 +39,7 @@ export function applyImportedPlate(draft: CalculatorDraft, data: PrintImport, pl
   // A newly imported material cannot inherit the previous spool's provenance.
   // Reuse only after checking a saved profile against this particular plate.
   const profileOrigins = { ...ux.profileOrigins }; delete profileOrigins.filament;
-  return { ...updated, ux: { ...ux, profileOrigins, entry: 'import', stage: 'print', filament: { mode: 'spool', amount: '', netGrams: '' }, origin: { fileName: data.fileName, printer: data.printer, material, plateId: plate.id, plateName: plate.name, plateCount: data.plates.length, grams: plate.grams, seconds: plate.seconds, pieces: plate.pieces, warnings: data.warnings, materials: plate.materials } } };
+  return { ...updated, ux: { ...ux, ...(ux.manualProduction ? { manualProduction: { ...ux.manualProduction, enabled: false } } : {}), profileOrigins, entry: 'import', stage: 'print', filament: { mode: 'spool', amount: '', netGrams: '' }, origin: { fileName: data.fileName, printer: data.printer, material, plateId: plate.id, plateName: plate.name, plateCount: data.plates.length, grams: plate.grams, seconds: plate.seconds, pieces: plate.pieces, warnings: data.warnings, materials: plate.materials } } };
 }
 export function validateReusableProfile(draft: CalculatorDraft, kind: 'filament' | 'printer') {
   const ux = withExperience(draft).ux;
@@ -103,7 +103,7 @@ export function calculateExperience(draft: CalculatorDraft, tables: readonly Sho
     const assumptions = [...(selected.assumptions ?? [])];
     for (const item of data.solution.assumptions) if (!assumptions.some(old => old.id === item.id && old.message === item.message)) assumptions.push({ id: item.id, kind: item.kind, message: item.message });
     const catalog = { ...selected, assumptions }; const result = calculatePricing({ ...data.input, unitPrice }, catalog);
-    return { kind: 'sale', draft: updated, data: { ...data, input: { ...data.input, unitPrice }, catalog, result } };
+    return { kind: 'sale', draft: updated, data: { ...data, input: { ...data.input, unitPrice }, catalog, result, expenses: expenseBreakdown(updated) } };
   }
   const directReference = text(normalized, 'calculation') === 'direct' && data.result.status === 'partial' ? referencePricePreview(normalized, tables) : null;
   return { kind: 'sale', draft: normalized, data, ...(directReference ? { referencePreview: directReference } : {}) };

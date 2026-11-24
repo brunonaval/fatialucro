@@ -12,6 +12,12 @@ export function calculateManufacturing(input: ManufacturingInput, count: number)
   quantity(pieces);
   const parts = input.partsPerUnit ?? 1;
   quantity(parts);
+  if (input.manualCostPerPiece !== undefined) {
+    if (batch) throw new Error('Custo direto deve ser informado por peça física.');
+    const unit = money(input.manualCostPerPiece, 'custo direto por peça').mul(parts);
+    const perUnit = cash(unit), total = cash(unit.mul(count));
+    return { lines: [{ id: 'manual-production', name: 'Custo de produção informado', formula: 'Custo informado por peça física × peças por unidade comercial', rawPerUnit: unit.toFixed(), perUnit, quantity: count, total }], perUnit, total };
+  }
   const hours = decimal(input.printHours, 'horas de impressão');
   const lines: CostLine[] = [];
   const add = (id: string, name: string, formula: string, raw: Dec, alreadyPerUnit = false) => {
