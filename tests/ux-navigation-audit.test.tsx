@@ -23,7 +23,7 @@ describe('Auditoria UX — navegação correta e erros indicados no campo', () =
     const { readFileSync } = await import('node:fs');
     const app = readFileSync(new URL('../src/ui/App.tsx', import.meta.url), 'utf8');
     expect(app).toContain('onClick={() => navigatePage(value)}');
-    expect(app).toContain('useLayoutEffect(() => { focusPageStart(); }, [page])');
+    expect(app).toContain('useLayoutEffect(() => { focusPageStart(); }, [page, view])');
     expect(app).not.toContain("focusTarget.current ?? (page === 'calculate'");
   });
 
