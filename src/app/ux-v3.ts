@@ -35,7 +35,7 @@ export function applyFinalPrice(draft: CalculatorDraft, price: string): Calculat
 }
 export function changeScenarioDate(draft: CalculatorDraft, date: string): CalculatorDraft {
   if (date === text(draft, 'date')) return draft;
-  return { ...draft, fields: { ...draft.fields, date, orders: '', shippingConfirmed: false, acceptValidity: false, acceptRounding: false, acceptPrecedence: false }, ...(draft.ux ? { ux: { ...draft.ux, shipping: 'unknown' as const, programDeclaration: draft.ux.programDeclaration ?? { answer: 'some' as const, date: text(draft, 'date'), programs: programQuestions.filter(program => !draft.ux!.persistentPrograms?.includes(program.field) || ['highlight', 'affiliates'].includes(program.field) || draft.fields[program.field] === 'trial').map(program => program.field) } } } : {}) };
+  return { ...draft, fields: { ...draft.fields, date, orders: '', shippingConfirmed: false, acceptValidity: false, acceptRounding: false, acceptPrecedence: false }, ...(draft.ux ? { ux: { ...draft.ux, shipping: 'unknown' as const, ...(draft.ux.programPricing ? { programPricing: { ...draft.ux.programPricing, affiliateAttribution: 'unknown' as const, advanceShare: '' } } : {}), programDeclaration: draft.ux.programDeclaration ?? { answer: 'some' as const, date: text(draft, 'date'), programs: programQuestions.filter(program => !draft.ux!.persistentPrograms?.includes(program.field) || ['highlight', 'affiliates'].includes(program.field) || draft.fields[program.field] === 'trial').map(program => program.field) } } } : {}) };
 }
 export function acceptHypotheses(draft: CalculatorDraft, tableId: string, accepted: ('validity' | 'rounding' | 'precedence')[]): CalculatorDraft {
   if (!draft.ux || !tableId || !accepted.length) throw new Error('Confira as hipóteses e a referência antes de aceitar.');
@@ -50,7 +50,7 @@ export function costExclusions(draft: CalculatorDraft): string[] {
 }
 export function profileSignature(draft: CalculatorDraft, kind: 'filament' | 'printer' | 'store') {
   const keys = kind === 'filament' ? ['filament', 'materialName'] : kind === 'printer' ? ['printerName', 'machineMode', 'machine', 'watts', 'kwh', 'maintenance', 'depreciation'] : ['seller', ...programQuestions.map(program => program.field)];
-  return JSON.stringify({ fields: keys.map(key => draft.fields[key]), options: kind === 'filament' ? draft.ux?.filament : kind === 'printer' ? [draft.ux?.machineIncluded, draft.ux?.wearIncluded] : null });
+  return JSON.stringify({ fields: keys.map(key => draft.fields[key]), options: kind === 'filament' ? draft.ux?.filament : kind === 'printer' ? [draft.ux?.machineIncluded, draft.ux?.wearIncluded] : draft.ux?.programPricing ?? null });
 }
 export function profileSource(draft: CalculatorDraft, kind: 'filament' | 'printer' | 'store') {
   const origin = draft.ux?.profileOrigins?.[kind];

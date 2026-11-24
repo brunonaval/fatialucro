@@ -43,7 +43,7 @@ export interface FeeRule {
   name: string;
   version: string;
   formula: Formula | null;
-  base: 'gross-sales' | 'after-seller-discount';
+  base: 'gross-sales' | 'after-seller-discount' | 'after-marketplace-fees';
   scope: 'item' | 'order';
   requirement: 'mandatory' | 'optional' | 'conditional';
   conditions: readonly Condition[];

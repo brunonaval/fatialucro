@@ -30,16 +30,17 @@ export function ExperienceResult({ state, frozen, onConfirm, onResolve, onSell, 
       ? estimate.lower === estimate.upper ? currency(estimate.lower) : `${currency(estimate.lower)} a ${currency(estimate.upper)}` : null;
     const pending = output.data.solution?.status === 'partial' ? output.data.solution.pending : [];
     return <section id="result-step" className="result-blocked">
-      <span className="status-badge warning">{estimate ? label ? 'Estimativa não confirmada' : 'Meta fora do intervalo' : 'Busca não concluída'}</span>
+      <span className="status-badge warning">{estimate ? label ? 'Preço estimado' : 'Meta fora do intervalo' : 'Busca não concluída'}</span>
       {issues.length > 0 && <GuidedIssues issues={issues} {...(onFix ? { onFix } : {})} />}
       {estimate ? <>
         <h2>Por quanto posso vender?</h2>
         <div className="reference-price-preview" aria-label="Preço estimado de referência">
-          <span>{estimate.excludedActivePrograms.length ? 'Preço-base parcial, sem taxas de programas ativos' : 'Preço orientativo com tarifas documentadas'}</span>
+          <span>{estimate.excludedActivePrograms.length ? 'Preço-base parcial, sem taxas de programas ativos' : 'Preço orientativo com tarifas documentadas e hipóteses'}</span>
           <strong>{label ?? 'Meta não atingida no intervalo'}</strong>
           {estimate.unreachableScenarios > 0 && <p className="notice">{label ? 'Em pelo menos um cenário adicional, a meta não cabe no intervalo.' : 'A meta não foi atingida nos cenários calculáveis.'} Aumente o limite de {currency(estimate.searchEnd)} ou reduza a meta. Isso não é um erro de preenchimento.</p>}
           <p>{conditional ? 'Cenários com e sem cobrança da Devolução Fácil.' : 'Simulação com os custos e as tarifas que podem ser calculados.'} Não é preço garantido nem lucro confirmado. Se houver outras cobranças desconhecidas, o valor real pode superar esta referência.</p>
           {estimate.excludedActivePrograms.length > 0 && <div className="notice" role="status"><strong>Atenção: NÃO use esse preço-base como preço final de venda.</strong><p>Você informou participação ativa em {estimate.excludedActivePrograms.join(', ')}. Como os valores dessas cobranças não estão determinados, elas NÃO foram incluídas no preço-base ilustrativo. O preço necessário para sua margem pode ser maior.</p><p>Para obter um preço mais completo, informe as taxas reais dos programas ativos nas condições da Shopee. As respostas “Sim” foram mantidas.</p></div>}
+          {estimate.example && estimate.exampleUnitPrice && <div className="result-metrics"><p><strong>Simulação no preço de {currency(estimate.exampleUnitPrice)}</strong></p><p>Taxas estimadas: {currency(estimate.example.knownMarketplaceFees)} · Lucro estimado: {currency(estimate.example.operatingProfit)} · Margem: {estimate.example.margin === null ? '—' : (Number(estimate.example.margin)*100).toFixed(2).replace('.', ',') + '%'}</p><details><summary>Composição das taxas estimadas</summary><ul>{estimate.example.fees.map(fee => <li key={fee.rule.id}>{fee.rule.name}: {currency(fee.amount)}</li>)}</ul></details></div>}
           {estimate.hypotheticalConditions.length > 0 && <details><summary>Hipóteses e custos ainda não confirmados</summary><ul>{estimate.hypotheticalConditions.map(condition => <li key={condition}>{condition}</li>)}</ul><p>Você não precisa preencher novamente para ver esta referência; confira as condições apenas para melhorar a precisão.</p></details>}
         </div>
         <p className="field-hint">Busca desde {currency(estimate.searchStart)}. O valor de anúncio pode mudar após conferir cobranças reais da Shopee e despesas não informadas.</p>

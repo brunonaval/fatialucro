@@ -5,7 +5,9 @@ export interface ImportOrigin {
   pieces: number | null; warnings: string[];
   materials: { name: string; grams: string | null }[];
 }
+import type { ProgramPricing } from '../marketplaces/shopee/programs';
 export interface ExperienceState {
+  programPricing?: ProgramPricing;
   version: 2;
   entry: 'none' | 'manual' | 'import' | 'example';
   intent: 'cost' | 'sale'; mode: 'simple' | 'advanced'; stage: 'print' | 'costs' | 'sale' | 'result';

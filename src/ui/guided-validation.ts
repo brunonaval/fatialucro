@@ -1,4 +1,5 @@
 import { D, date } from '../engine/decimal';
+import { programPercent } from '../marketplaces/shopee/programs';
 import type { CalculatorDraft } from '../app/model';
 import { manualIds, saleExtraSelected, text } from '../app/model';
 import { normalizeNumeric, numericIssue } from './format';
@@ -137,6 +138,10 @@ export function guidedIssues(draft: CalculatorDraft): GuidedIssue[] {
         }
         if (text(draft, 'manualUntil') < text(draft, 'manualFrom'))
           add('manualUntil', 'sale', 'Fim do período personalizado', 'O fim não pode ser anterior ao início.');
+      }
+      const p = ux.programPricing ?? {};
+      for (const [field, program, label, max] of [['adsRate','ads','Percentual Ads Fácil',5],['affiliateRate','affiliates','Comissão de afiliados',100],['affiliateExtraRate','affiliates','Encargo de afiliados',100],['advanceShare','advance','Parcela antecipada',100]] as const) {
+        if (text(draft, program) === 'active' && p[field]?.trim() && programPercent(p[field], max) === undefined) add(field, 'sale', label, 'Informe um percentual de 0 a ' + max + ' ou deixe em branco se não souber.');
       }
       const orders = text(draft, 'orders');
       if (text(draft, 'seller') === 'CPF' && orders.trim() && (!/^\d+$/.test(orders) || !Number.isSafeInteger(Number(orders))))
