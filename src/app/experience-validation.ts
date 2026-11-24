@@ -2,6 +2,8 @@ import type { ExperienceState } from './experience-types';
 export function validateExperience(value: unknown): asserts value is ExperienceState {
   if (!value || typeof value !== 'object') throw new Error('Rascunho de interface inválido.');
   const ux = value as ExperienceState;
+  if (ux.manualProduction !== undefined && (!ux.manualProduction || typeof ux.manualProduction.enabled !== 'boolean' || typeof ux.manualProduction.amount !== 'string' || ux.manualProduction.amount.length > 100)) throw new Error('Custo direto inválido.');
+  if (ux.advertisingPercent !== undefined && (typeof ux.advertisingPercent !== 'string' || ux.advertisingPercent.length > 100)) throw new Error('Percentual de publicidade inválido.');
   if (ux.programPricing !== undefined) {
     const p = ux.programPricing;
     if (!p || typeof p !== 'object' || Array.isArray(p)) throw new Error('Configuração de programas inválida.');

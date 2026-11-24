@@ -1,8 +1,14 @@
-import { cash, D, date, money, quantity } from './decimal';
+import { cash, D, date, decimal, money, quantity } from './decimal';
 import { calculateManufacturing } from './manufacturing';
 import { calculatePackaging } from './packaging';
 import { calculateFees } from './rules';
 import type { PricingResult, SaleInput, TariffCatalog } from './types';
+
+export function percentageAdvertising(gross: string, rate: string): string {
+  const percent = decimal(rate, 'percentual de publicidade');
+  if (percent.gt(100)) throw new Error('Publicidade deve ser entre 0 e 100%.');
+  return cash(money(gross).mul(percent).div(100));
+}
 
 export function calculatePricing(input: SaleInput, catalog: TariffCatalog): PricingResult {
   date(input.date);
@@ -14,7 +20,7 @@ export function calculatePricing(input: SaleInput, catalog: TariffCatalog): Pric
   const manufacturing = calculateManufacturing(input.manufacturing, input.quantity);
   const packaging = new D(calculatePackaging(input));
   const shipping = money(input.sellerShipping, 'frete líquido efetivamente suportado pelo vendedor');
-  const other = money(input.otherOperatingCosts, 'outros custos operacionais');
+  const other = money(input.otherOperatingCosts, 'outros custos operacionais').plus(input.advertisingPercent === undefined ? '0' : percentageAdvertising(cash(gross), input.advertisingPercent));
   const costs = new D(manufacturing.total).plus(packaging).plus(other);
   const { fees, pending, excluded, assumptions: rawAssumptions } = calculateFees(input, catalog, gross, net);
   const assumptions = rawAssumptions.map(assumption => ({ ...assumption,

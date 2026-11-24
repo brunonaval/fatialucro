@@ -34,6 +34,8 @@ export function guidedIssues(draft: CalculatorDraft): GuidedIssue[] {
     if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) < 1 || Number(value) > 10000)
       add(field, stage, label, 'Informe ' + label.toLowerCase() + ' como número inteiro entre 1 e 10.000.');
   };
+  if (ux.manualProduction?.enabled) check('manualProductionCost', ux.manualProduction.amount, 'costs', 'Custo de produção por peça', 'money');
+  else {
   if (text(draft, 'basis') === 'batch') count('pieces', text(draft, 'pieces'), 'print', 'Quantidade de peças da impressão');
   if (ux.materialIncluded !== false) {
     if (draft.materials.length) {
@@ -73,6 +75,7 @@ export function guidedIssues(draft: CalculatorDraft): GuidedIssue[] {
   if (ux.extrasIncluded) {
     check('consumables', text(draft, 'consumables'), 'costs', 'Consumíveis por peça', 'money');
     check('failure', text(draft, 'failure'), 'costs', 'Reserva para falhas', 'money');
+  }
   }
   if (ux.packagingIncluded) {
     const stage = ux.intent === 'cost' ? 'costs' : 'sale';
@@ -152,7 +155,10 @@ export function guidedIssues(draft: CalculatorDraft): GuidedIssue[] {
     if (calculation === 'margin') check('targetMargin', text(draft, 'targetMargin'), 'sale', 'Margem desejada', 'ratio');
     if (saleExtraSelected(draft, 'discount')) check('discount', text(draft, 'discount'), 'sale', 'Desconto do vendedor', 'money');
     if (saleExtraSelected(draft, 'other')) check('other', text(draft, 'other'), 'sale', 'Outras despesas', 'money');
-    if (draft.fields.advertisingEnabled === true) check('advertising', text(draft, 'advertising'), 'sale', 'Publicidade', 'money');
+    if (draft.fields.advertisingEnabled === true) {
+      if (ux.advertisingPercent !== undefined) check('advertisingPercent', ux.advertisingPercent, 'sale', 'Percentual de publicidade', 'percent');
+      else check('advertising', text(draft, 'advertising'), 'sale', 'Publicidade', 'money');
+    }
     if ((text(draft, 'marketplace') === 'direct' && saleExtraSelected(draft, 'shipping')) ||
       (text(draft, 'marketplace') === 'shopee' && ux.shipping === 'yes'))
       check('shipping', text(draft, 'shipping'), 'sale', 'Frete líquido', 'money');

@@ -72,6 +72,8 @@ export interface TariffCatalog {
 }
 
 export interface ManufacturingInput {
+  // Explicit user-supplied physical piece cost; mutually exclusive with detailed manufacturing.
+  manualCostPerPiece?: string;
   // Existing callers keep per-unit semantics. Batch totals are allocated explicitly.
   basis?: 'unit' | 'batch';
   piecesPerBatch?: number;
@@ -113,6 +115,7 @@ export interface SaleInput {
   sellerDiscount: string;
   sellerShipping: string;
   otherOperatingCosts: string;
+  advertisingPercent?: string;
   selections: Readonly<Record<string, boolean>>;
   facts: Readonly<Record<string, string | boolean>>;
   acceptedAssumptions?: { validity?: boolean; rounding?: boolean; precedence?: boolean };

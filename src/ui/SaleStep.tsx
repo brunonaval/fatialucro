@@ -1,10 +1,11 @@
 import type { ShopeeTable } from '../marketplaces/catalogs/types';
 import { selectTable } from '../marketplaces/catalogs/select';
 import { saleExtraSelected, text } from '../app/model';
-import { Check, Field, Input, Select } from './Fields';
+import { Field, Input, Select } from './Fields';
 import { useExperience } from './ExperienceContext';
 import { ShopQuestions } from './ShopQuestions';
 import { PackagingFields } from './CostFields';
+import { AdvertisingFields } from './SharedQuickFields';
 
 export function SaleStep({ tables, onSaveShop }: { tables: readonly ShopeeTable[]; onSaveShop: () => void }) {
   const { draft, ux, update, patch } = useExperience(); const calculation = text(draft, 'calculation');
@@ -36,8 +37,7 @@ export function SaleStep({ tables, onSaveShop }: { tables: readonly ShopeeTable[
       {draft.fields.marketplace === 'direct' && <><label className="check"><input type="checkbox" checked={directShippingSelected} onChange={event => patch({ directShippingIncluded: event.target.checked })} />Tenho frete descontado do recebimento direto</label>{directShippingSelected && <Field name="shipping" label="Frete líquido debitado neste pedido" />}</>}
       <label className="check"><input type="checkbox" checked={otherSelected} onChange={event => patch({ otherCostsIncluded: event.target.checked })} />Tenho outras despesas ou tributos informados por pedido</label>
       {otherSelected && <Field name="other" label="Outras despesas e tributos informados por pedido" />}
-      <Check name="advertisingEnabled">Tenho publicidade adicional paga atribuída a este pedido (não incluir créditos do Ads Fácil novamente)</Check>
-      {draft.fields.advertisingEnabled === true && <Field name="advertising" label="Publicidade alocada ao pedido" />}
+      <AdvertisingFields />
       <p className="muted">Excluir uma despesa não significa que ela seja zero na realidade. Cupons pagos pela plataforma não são desconto seu. O frete líquido da Shopee é confirmado na seção Shopee.</p>
     </details>
     <details className="price-tools"><summary>Mais opções de precificação (avançado)</summary>

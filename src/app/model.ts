@@ -1,5 +1,6 @@
 import { calculatePricing, parseBrazilianMoney } from '../engine';
 import { D } from '../engine/decimal';
+import { percentageAdvertising } from '../engine/pricing';
 import type { ManualFee, ManufacturingInput, SaleInput } from '../engine';
 import type { ExperienceState, PurchaseDraft } from './experience-types';
 import { directSaleCatalog } from '../marketplaces/custom';
@@ -56,13 +57,14 @@ export function saleExtraSelected(draft: CalculatorDraft, kind: 'discount' | 'ot
 }
 export function expenseBreakdown(draft: CalculatorDraft) {
   return { other: saleExtraSelected(draft, 'other') ? parseBrazilianMoney(text(draft, 'other')) : '0.00',
-    advertising: draft.fields.advertisingEnabled === true ? parseBrazilianMoney(text(draft, 'advertising')) : '0.00' };
+    advertising: draft.fields.advertisingEnabled === true ? draft.ux?.advertisingPercent !== undefined ? percentageAdvertising(new D(parseBrazilianMoney(text(draft, 'price'))).mul(integer(text(draft, 'quantity'), 'Quantidade vendida')).toFixed(2), numeric(draft.ux.advertisingPercent, 'Publicidade')) : parseBrazilianMoney(text(draft, 'advertising')) : '0.00' };
 }
 export function buildManufacturing(draft: CalculatorDraft): ManufacturingInput {
   const t = (name: string) => text(draft, name);
   const value = (name: string) => numeric(t(name), ({ grams: 'Peso de filamento', hours: 'Tempo de impressão', machine: 'Custo da impressora' } as Record<string, string>)[name] ?? name);
   const cashValue = (name: string) => parseBrazilianMoney(t(name));
   const ux = draft.ux;
+  if (ux?.manualProduction?.enabled) return { basis: 'unit', piecesPerBatch: 1, manualCostPerPiece: parseBrazilianMoney(ux.manualProduction.amount), grams: '0', filamentPerKg: '0', printHours: '0', machine: { mode: 'all-in', perHour: '0' }, laborMinutes: '0', laborPerHour: '0', consumablesPerUnit: '0', failureReservePerUnit: '0', ...(ux.saleUnit === 'kit' && ux.intent === 'sale' ? { partsPerUnit: integer(ux.partsPerKit, 'Peças dentro de cada kit') } : {}) };
   const materialSelected = ux?.materialIncluded !== false;
   if (materialSelected && !draft.materials.length && ux?.filament.mode === 'spool') {
     if (!ux.filament.amount) throw new Error('Informe o preço pago pela bobina.');
@@ -149,7 +151,8 @@ export function buildScenario(draft: CalculatorDraft, tables: readonly ShopeeTab
     date: t('date'), purpose: 'simulation', unitPrice: m('price'), quantity: integer(t('quantity'), 'Quantidade vendida'),
     manufacturing: buildManufacturing(draft),
     ...packagingInput(draft), sellerDiscount: saleExtraSelected(draft, 'discount') ? m('discount') : '0.00', sellerShipping: t('marketplace') === 'shopee' ? shopeeShipping() : (saleExtraSelected(draft, 'shipping') ? m('shipping') : '0.00'),
-    otherOperatingCosts: new D(expenseBreakdown(draft).other).plus(expenseBreakdown(draft).advertising).toFixed(2),
+    otherOperatingCosts: new D(expenseBreakdown(draft).other).plus(yes('advertisingEnabled') && draft.ux?.advertisingPercent !== undefined ? '0' : expenseBreakdown(draft).advertising).toFixed(2),
+    ...(yes('advertisingEnabled') && draft.ux?.advertisingPercent !== undefined ? { advertisingPercent: numeric(draft.ux.advertisingPercent, 'Publicidade') } : {}),
     selections: t('marketplace') === 'shopee' ? shopeeSelections(context) : {}, facts: t('marketplace') === 'shopee' ? shopeeFacts(context) : {},
     acceptedAssumptions: Object.fromEntries((['validity', 'rounding', 'precedence'] as const).map(kind => [kind, yes(`accept${kind[0]!.toUpperCase()}${kind.slice(1)}`) && (!draft.ux?.assumptionReview || (draft.ux.assumptionReview.date === t('date') && draft.ux.assumptionReview.tableId === selectTable(t('date'), tables)?.table.id && draft.ux.assumptionReview.accepted.includes(kind)))])),
   };
