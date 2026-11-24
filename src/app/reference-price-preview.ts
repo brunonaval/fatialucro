@@ -47,7 +47,7 @@ export function referencePricePreview(draft: CalculatorDraft, tables: readonly S
   // must not be reset by a stale date-bound declaration.
   delete baseline.ux!.programDeclaration;
   const hypotheticalConditions: string[] = [];
-  const excludedActivePrograms: string[] = [];
+  const excludedActivePrograms: string[] = []; // Kept for compatibility with earlier UI snapshots.
   const referenceDiscountGross = shopee && saleExtraSelected(draft, 'discount') && Number(text(draft, 'discount').replace(',', '.')) > 0 && fields.manualBasic !== true;
   if (referenceDiscountGross) hypotheticalConditions.push('Desconto do vendedor: nesta referência, a faixa e a comissão usam o preço bruto; o cupom é deduzido da receita. A regra real de incidência não foi comprovada.');
   if (draft.ux.packagingDecision === 'unknown') {

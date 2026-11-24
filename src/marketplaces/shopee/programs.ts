@@ -26,11 +26,11 @@ export function automaticProgramRates(p: ProgramPricing = {}) {
   if (attribution === 'none') affiliate = '0';
   else if (base !== undefined && extra !== undefined && (attribution === 'direct' || attribution === 'indirect') && dynamic && dynamic !== 'unknown') {
     const rate = new D(base).mul(attribution === 'indirect' ? '0.3' : '1').mul(dynamic === 'low' ? '0.5' : dynamic === 'high' ? '1.5' : '1').mul(new D(extra).div(100).plus(1));
-    if (rate.lte(100)) affiliate = rate.toFixed();
+    if (rate.lte(100)) affiliate = rate.toDecimalPlaces(12).toFixed();
   }
   const share = programPercent(p.advanceShare);
   const tier = p.advanceTier;
-  const advance = share === '0' ? '0' : share !== undefined && tier && tier !== 'unknown' ? new D(programReference.advanceRates[tier]).mul(share).div(100).toFixed() : undefined;
+  const advance = share === '0' ? '0' : share !== undefined && tier && tier !== 'unknown' ? new D(programReference.advanceRates[tier]).mul(share).div(100).toDecimalPlaces(12).toFixed() : undefined;
   return { ads, affiliate, advance };
 }
 const article = (id: string, urls: string[], reference: string): Evidence => ({

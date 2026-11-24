@@ -30,6 +30,7 @@ export function validateCatalog(catalog: TariffCatalog): void {
     const key = `${rule.id}@${rule.version}`;
     if (versions.has(key)) throw new Error(`Regra duplicada: ${key}.`);
     versions.add(key);
+    if (!['gross-sales','after-seller-discount','after-marketplace-fees'].includes(rule.base) || (rule.base === 'after-marketplace-fees' && rule.scope !== 'order')) throw new Error('Base de cobrança inválida.');
     if (!rule.id || !rule.version || !rule.evidence.reference) throw new Error('Regra sem identidade ou fonte.');
     if (rule.includes.includes(rule.id)) throw new Error('Regra não pode incluir a si mesma.');
     if (rule.effectiveFrom !== null) date(rule.effectiveFrom);

@@ -3,7 +3,7 @@ import type { ShopeeTable } from '../marketplaces/catalogs/types';
 import { catalogIndicator, selectTable } from '../marketplaces/catalogs/select';
 import { text } from '../app/model';
 import { declarePrograms, programQuestions, scenarioPrograms, profileSource } from '../app/ux-v3';
-import { BaseField, Check, Field, Input, ManualFeeFields, ScopeField, Select } from './Fields';
+import { BaseField, Check, Field, Input, ManualFeeFields, ScopeField, Select, useForm } from './Fields';
 import { useExperience } from './ExperienceContext';
 import { SimulationReview } from './SimulationReview';
 import { shopeeCheckpoints } from '../app/shopee-checkpoints';
@@ -24,7 +24,8 @@ export function ShopQuestions({ tables, permanentOnly = false }: { tables: reado
   function changeProgram(name: string, value: string) { const next = declarePrograms({ ...draft, fields: { ...fields, [name]: value } }, 'some'); update(next); }
   const savedSeller = Boolean(ux.profileOrigins?.store && ['CPF', 'CNPJ'].includes(text(draft, 'seller')));
   // A saved shop does not require opening all five programs on every quote.
-  const individual = showPrograms || (group === 'some' && !savedSeller);
+  const form = useForm();
+  const individual = showPrograms || (group === 'some' && (!savedSeller || (form.showErrors && form.issues?.some(i => ['adsRate','affiliateRate','affiliateExtraRate','advanceShare'].includes(i.field)))));
   function navigate(target: ShopeeCheckpointId) {
     const wrapper = document.getElementById(sectionId('shop-conditions-options'));
     if (wrapper instanceof HTMLDetailsElement) wrapper.open = true;
