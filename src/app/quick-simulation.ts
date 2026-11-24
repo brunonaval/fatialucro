@@ -4,9 +4,9 @@ import { text } from './model';
 import { D } from '../engine/decimal';
 import type { ExperienceOutput } from './experience';
 
-export function beginQuick(draft:CalculatorDraft, source:'manual'|'printing'):CalculatorDraft {
+export function beginQuick(draft:CalculatorDraft, source:'manual'|'printing',goal:'sale'|'profit'|'cost'='sale'):CalculatorDraft {
   const d=withExperience(draft);
-  return {...d, fields:{...d.fields, calculation:'direct',quantity:text(d,'quantity')||'1'},ux:{...d.ux,entry:'manual',intent:'sale',stage:'print',manualProduction:{enabled:source==='manual',amount:d.ux.manualProduction?.amount??''}}};
+  return {...d, fields:{...d.fields, calculation:goal==='profit'?'profit':'direct',quantity:goal==='cost'?text(d,'quantity'):text(d,'quantity')||'1'},ux:{...d.ux,entry:'manual',intent:goal==='cost'?'cost':'sale',stage:'print',manualProduction:{enabled:source==='manual',amount:d.ux.manualProduction?.amount??''}}};
 }
 export function quickSaleProjection(output:ExperienceOutput | undefined, orders:number) {
   if (!output || output.kind==='cost') return null;

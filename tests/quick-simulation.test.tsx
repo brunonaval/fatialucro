@@ -22,6 +22,12 @@ function ready() {
  return d;
 }
 describe('Simulação rápida e detalhada: um único rascunho e motor',()=>{
+ it('os três objetivos iniciais selecionam operações reais, sem reescrever os custos',()=>{
+   const d=ready();
+   expect(beginQuick(d,'manual','sale')).toMatchObject({fields:{calculation:'direct'},ux:{intent:'sale',manualProduction:{enabled:true,amount:'3.00'}}});
+   expect(beginQuick(d,'manual','profit')).toMatchObject({fields:{calculation:'profit'},ux:{intent:'sale'}});
+   const cost=beginQuick(d,'manual','cost');expect(cost.ux?.intent).toBe('cost');expect(calculateExperience(cost)).toMatchObject({kind:'cost',cost:{total:'3.00'}});
+ });
  it('inicia com custo informado, sem exigir peso, máquina ou bobina',()=>{
    const d=ready(); validateDraft(d);expect(guidedIssues(d)).toEqual([]);
    expect(calculateCostPreview(d)).toMatchObject({total:'3.00',perPiece:'3.00'});
