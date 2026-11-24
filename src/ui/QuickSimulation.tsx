@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { withExperience } from '../app/experience';
 import { saleExtraSelected, text } from '../app/model';
 import type { SavedEntry } from '../app/storage';
 import type { ShopeeTable } from '../marketplaces/catalogs/types';
@@ -19,7 +20,7 @@ import { currency } from './ResultView';
 import { ExperienceResult } from './ExperienceResult';
 import type { FinancialState } from './useAutomaticCalculation';
 
-type Props={entries:SavedEntry[]; tables:readonly ShopeeTable[]; state:FinancialState; issues:readonly GuidedIssue[]; onFix:(issue:GuidedIssue)=>void; onProfile:(entry:SavedEntry)=>void; onSaveFilament:(draft:ReturnType<typeof import('../app/experience').withExperience>)=>Promise<void>; onSaveShop:()=>void; onSave:()=>void; onDetailed:()=>void; onResolve:(target:string)=>void; onRetry:()=>void; saved:boolean};
+type Props={entries:SavedEntry[]; tables:readonly ShopeeTable[]; state:FinancialState; issues:readonly GuidedIssue[]; onFix:(issue:GuidedIssue)=>void; onProfile:(entry:SavedEntry)=>void; onSaveFilament:(draft:ReturnType<typeof withExperience>)=>Promise<void>; onSaveShop:()=>void; onSave:()=>void; onDetailed:()=>void; onResolve:(target:string)=>void; onRetry:()=>void; saved:boolean};
 export function QuickSimulation({entries,tables,state,issues,onFix,onProfile,onSaveFilament,onSaveShop,onSave,onDetailed,onResolve,onRetry,saved}:Props) {
   const {draft,ux,update,patch}=useExperience();
   const [orders,setOrders]=useState('100');
