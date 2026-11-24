@@ -30,6 +30,7 @@ export function validateCatalog(catalog: TariffCatalog): void {
     const key = `${rule.id}@${rule.version}`;
     if (versions.has(key)) throw new Error(`Regra duplicada: ${key}.`);
     versions.add(key);
+    if (!['gross-sales','after-seller-discount','after-marketplace-fees'].includes(rule.base) || (rule.base === 'after-marketplace-fees' && rule.scope !== 'order')) throw new Error('Base de cobrança inválida.');
     if (!rule.id || !rule.version || !rule.evidence.reference) throw new Error('Regra sem identidade ou fonte.');
     if (rule.includes.includes(rule.id)) throw new Error('Regra não pode incluir a si mesma.');
     if (rule.effectiveFrom !== null) date(rule.effectiveFrom);
@@ -47,8 +48,8 @@ function resolveFormula(formula: Formula, unitPrice: Dec): SimpleFormula | undef
   return formula.bands.find(band => unitPrice.gte(band.from) && (band.to === null || unitPrice.lt(band.to)))?.formula;
 }
 
-function assess(rule: FeeRule, formula: SimpleFormula, gross: Dec, net: Dec, count: number): FeeLine {
-  const base = rule.base === 'gross-sales' ? gross : net;
+function assess(rule: FeeRule, formula: SimpleFormula, gross: Dec, net: Dec, count: number, afterFees: Dec): FeeLine {
+  const base = rule.base === 'gross-sales' ? gross : rule.base === 'after-marketplace-fees' ? afterFees : net;
   let groups: { base: Dec; count: number }[];
   if (rule.scope === 'order') groups = [{ base, count: 1 }];
   else {
@@ -112,7 +113,8 @@ export function calculateFees(input: SaleInput, catalog: TariffCatalog, gross: D
   }
   // Explicit containment, never guessed from fee names or percentages.
   const included = new Set(candidates.flatMap(rule => rule.includes));
-  for (const rule of candidates) {
+  // Dependent receivable fees are computed after all independent charges.
+  for (const rule of [...candidates].sort((a,b) => Number(a.base === 'after-marketplace-fees') - Number(b.base === 'after-marketplace-fees'))) {
     if (included.has(rule.id)) {
       if (rule.includes.length) throw new Error('Hierarquia de inclusão ambígua ou cíclica.');
       excluded.push({ id: rule.id, reason: 'Componente já incluído em outra cobrança ativa.' });
@@ -131,7 +133,11 @@ export function calculateFees(input: SaleInput, catalog: TariffCatalog, gross: D
       id: `${rule.id}@${rule.version}:custom`, kind: 'custom-parameters',
       message: `${rule.name}: parâmetros personalizados. ${rule.evidence.reference}`,
     });
-    fees.push(assess(rule, formula, gross, net, input.quantity));
+    if (rule.base === 'after-marketplace-fees' && pending.length && !(formula.kind === 'percentage' && new D(formula.rate).isZero())) {
+      pending.push({ id: rule.id, message: 'Base líquida do Acelera ainda depende das outras cobranças.' }); continue;
+    }
+    const afterFees = D.max(0, net.minus(fees.reduce((sum, fee) => sum.plus(fee.amount), new D(0))));
+    fees.push(assess(rule, formula, gross, net, input.quantity, afterFees));
   }
   return { fees, pending, excluded, assumptions };
 }

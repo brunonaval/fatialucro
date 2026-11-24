@@ -3,12 +3,13 @@ import type { ShopeeTable } from '../marketplaces/catalogs/types';
 import { catalogIndicator, selectTable } from '../marketplaces/catalogs/select';
 import { text } from '../app/model';
 import { declarePrograms, programQuestions, scenarioPrograms, profileSource } from '../app/ux-v3';
-import { BaseField, Check, Field, Input, ManualFeeFields, ScopeField, Select } from './Fields';
+import { BaseField, Check, Field, Input, ManualFeeFields, ScopeField, Select, useForm } from './Fields';
 import { useExperience } from './ExperienceContext';
 import { SimulationReview } from './SimulationReview';
 import { shopeeCheckpoints } from '../app/shopee-checkpoints';
 import type { ShopeeCheckpointId } from '../app/shopee-checkpoints';
 import { ShopSetupGuide } from './ShopSetupGuide';
+import { ProgramPricingFields } from './ProgramPricingFields';
 import { focusCorrectionTarget } from './navigation';
 
 export function ShopQuestions({ tables, permanentOnly = false }: { tables: readonly ShopeeTable[]; permanentOnly?: boolean }) {
@@ -23,7 +24,8 @@ export function ShopQuestions({ tables, permanentOnly = false }: { tables: reado
   function changeProgram(name: string, value: string) { const next = declarePrograms({ ...draft, fields: { ...fields, [name]: value } }, 'some'); update(next); }
   const savedSeller = Boolean(ux.profileOrigins?.store && ['CPF', 'CNPJ'].includes(text(draft, 'seller')));
   // A saved shop does not require opening all five programs on every quote.
-  const individual = showPrograms || (group === 'some' && !savedSeller);
+  const form = useForm();
+  const individual = showPrograms || (group === 'some' && (!savedSeller || (form.showErrors && form.issues?.some(i => ['adsRate','affiliateRate','affiliateExtraRate','advanceShare'].includes(i.field)))));
   function navigate(target: ShopeeCheckpointId) {
     const wrapper = document.getElementById(sectionId('shop-conditions-options'));
     if (wrapper instanceof HTMLDetailsElement) wrapper.open = true;
@@ -53,7 +55,7 @@ export function ShopQuestions({ tables, permanentOnly = false }: { tables: reado
       {individual && savedSeller && <button type="button" className="text-button" onClick={() => setShowPrograms(false)}>Recolher programas já conferidos</button>}
       {individual && <div className="program-questions">
         <label>Sua loja participa da Devolução Fácil?<select value={String(fields.returns)} onChange={event => changeProgram('returns', event.target.value)}><option value="unknown">Não sei</option><option value="inactive">Não</option><option value="trial">Sim, durante teste gratuito</option><option value="billable">Sim, com cobrança ativa</option></select></label>
-        {programs.map(program => <label key={program.name}>Participa de {program.label}?<select value={String(fields[program.name])} onChange={event => changeProgram(program.name, event.target.value)}><option value="unknown">Não sei</option><option value="inactive">Não</option><option value="active">Sim</option></select></label>)}
+        {programs.map(program => <div key={program.name}><label>Participa de {program.label}?<select value={String(fields[program.name])} onChange={event => changeProgram(program.name, event.target.value)}><option value="unknown">Não sei</option><option value="inactive">Não</option><option value="active">Sim</option></select></label>{fields[program.name] === 'active' && <ProgramPricingFields program={program.name} permanentOnly={permanentOnly} />}</div>)}
       </div>}
       {permanentOnly && <details><summary>Quais adesões podem ser reutilizadas em outras datas?</summary><p>Campanhas, afiliados da venda, testes gratuitos, volume e frete não são fatos permanentes. Mesmo uma adesão contínua precisa ser conferida se sua loja mudar.</p>{programQuestions.filter(program => ['returns', 'ads', 'advance'].includes(program.field)).map(program => <label className="check" key={program.field}><input type="checkbox" checked={ux.persistentPrograms?.includes(program.field) ?? false} disabled={fields[program.field] === 'unknown' || fields[program.field] === 'trial'} onChange={event => update({ ...draft, ux: { ...ux, persistentPrograms: event.target.checked ? [...(ux.persistentPrograms ?? []), program.field] : (ux.persistentPrograms ?? []).filter(field => field !== program.field) } })} />Confirmei que a adesão/não adesão a {program.name} é contínua</label>)}</details>}
       <details><summary>Como descubro isso?</summary><p>Na Central do Vendedor, confira adesão e cobrança de cada programa e o detalhamento financeiro dos pedidos. As respostas aqui não alteram sua loja na Shopee.</p><a href="https://seller.shopee.com.br/" target="_blank" rel="noreferrer">Abrir Central do Vendedor por minha iniciativa</a></details>

@@ -91,7 +91,7 @@ describe('Prévia orientativa sem alterar declarações da Shopee', () => {
     if (v.kind !== 'blocked-search') throw new Error('O volume desconhecido não pode determinar lucro.');
     expect(v.referencePreview?.hypotheticalConditions.join(' ')).toContain('Volume de pedidos desconhecido');
   });
-  it('programas ativos com cobranças indeterminadas recebem preço-base parcial e alerta explícito', () => {
+  it('programas ativos com percentual desconhecido recebem referência com cobrança ilustrativa e explicação', () => {
     const d = capturedScenario();
     const original = structuredClone(d);
     d.fields.returns = 'billable';
@@ -102,13 +102,14 @@ describe('Prévia orientativa sem alterar declarações da Shopee', () => {
     if (result.kind !== 'blocked-search') return;
     expect(result.data.solution?.status).toBe('partial');
     expect(result.referencePreview?.lower).toBeTruthy();
-    expect(result.referencePreview?.excludedActivePrograms).toEqual([
-      'Ads Fácil', 'Afiliados', 'Shopee Acelera',
-    ]);
+    expect(result.referencePreview?.excludedActivePrograms).toEqual([]);
+    expect(Number(result.referencePreview?.upper)).toBeGreaterThan(Number(result.referencePreview?.lower));
+    expect(result.referencePreview?.example?.fees.map(f=>f.rule.id)).toEqual(expect.arrayContaining(['shopee:adsEasy','shopee:affiliates','shopee:cashAdvance']));
+    expect(result.referencePreview?.example?.operatingProfit).not.toBeNull();
     const html = view(d, <ExperienceResult frozen={result} />);
-    expect(html).toContain('Preço-base parcial');
-    expect(html).toContain('NÃO use esse preço-base como preço final');
-    expect(html).toContain('valores dessas cobranças não estão determinados');
+    expect(html).toContain('Preço orientativo');
+    expect(html).toContain('Composição das taxas estimadas');
+    expect(html).toContain('não é teto');
     expect(d).toEqual(before);
     expect(original.fields.highlight).toBe('inactive');
   });

@@ -1,5 +1,7 @@
 import { D, date, decimal, money } from '../../engine/decimal';
 import { applyManualFees } from '../../engine/manual';
+import { automaticProgramRates, programEvidence } from './programs';
+import type { ProgramPricing } from './programs';
 import type { ManualFee } from '../../engine/manual';
 import type { Evidence, FeeRule, Pending, TariffCatalog } from '../../engine/types';
 import { bundledTables } from '../catalogs/bundled';
@@ -17,6 +19,7 @@ export interface ShopeeContext {
   adsEasy: Participation;
   affiliates: Participation;
   cashAdvance: Participation;
+  programPricing?: ProgramPricing;
   // An actual seller-funded shipping amount is supplied in SaleInput.
   shippingConfirmed: boolean;
 }
@@ -128,20 +131,23 @@ export function createShopeeCatalog(context: ShopeeContext, unitPrice: string, s
   if (context.highlightCampaign === 'unknown') pending.push({ id: 'shopee:campaign-enrollment', message: 'Confirme a adesão efetiva e o período da Campanha de Destaque.' });
   else add('shopee:highlight', 'Campanha de Destaque: todas as vendas da loja durante adesão', discountBasisKnownForScenario ? { kind: 'percentage', rate: table.programs.highlightPercent } : null,
     sources.campaign, { requirement: 'optional', conditions: [{ key: 'highlightActive', equals: true }] });
-  const deferred = [
-    ['adsEasy', 'Ads Fácil', ['23254/FAQ-Ads-Facil']],
-    ['affiliates', 'Afiliados', ['24596/Solucao-de-marketing-de-afiliados-Campanha', '20749/principais-duvidas-sobre-o-programa-de-afiliados']],
-    ['cashAdvance', 'Antecipação Shopee Acelera', ['25990/duvidas-frequentes-sobre-shopee-acelera']],
+  const rates = automaticProgramRates(context.programPricing);
+  const automatic = [
+    ['adsEasy', 'Ads Fácil', rates.ads, 'gross-sales', 'item'],
+    ['affiliates', 'Afiliados', rates.affiliate, 'gross-sales', 'item'],
+    ['cashAdvance', 'Antecipação Shopee Acelera', rates.advance, 'after-marketplace-fees', 'order'],
   ] as const;
-  for (const [key, name, articles] of deferred) {
-    if (context[key] !== 'inactive') {
-      pending.push({ id: `shopee:${key}`, message: `${name}: ${context[key] === 'unknown' ? 'participação desconhecida' : 'módulo automático ainda não implementado; informe valor personalizado apurado, com base e incidência explícitas'}. Nenhum valor zero foi presumido.`,
-        ...(context[key] === 'active' ? { manualRuleIds: [`shopee:${key}`] } : {}) });
-      if (context[key] === 'active') add(`shopee:${key}`, `${name}: cobrança adicional`, null,
-        { ...source(`shopee:${key}:unimplemented`, articles), verification: 'undetermined',
-          reference: 'Referências registradas na auditoria; fórmula e base específicas deste cenário não implementadas. Nenhuma tarifa automática foi presumida.' },
-        { requirement: 'optional', conditions: [{ key: `${key}Active`, equals: true }] });
+  for (const [key, name, rate, base, scope] of automatic) {
+    if (context[key] === 'inactive') continue;
+    if (context[key] === 'unknown') {
+      pending.push({ id: 'shopee:' + key, message: name + ': adesão desconhecida; a referência usa cenários explícitos.' });
+      continue;
     }
+    const usable = rate !== undefined && (key === 'cashAdvance' || discountBasisKnownForScenario || rate === '0');
+    if (!usable) pending.push({ id: 'shopee:' + key, message: name + ': percentual, condições de incidência ou base ainda não confirmados. A referência utiliza hipóteses identificadas.', manualRuleIds: ['shopee:' + key] });
+    add('shopee:' + key, name, usable ? { kind: 'percentage', rate } : null, programEvidence[key], {
+      requirement: 'optional', base, scope, conditions: [{ key: key + 'Active', equals: true }],
+    });
   }
   if (!context.shippingConfirmed) pending.push({ id: 'shopee:shipping', message: 'Frete/coparticipação do vendedor ainda não confirmado; o valor informado é apenas parcial.' });
   const catalog = applyManualFees({ marketplace: 'shopee-br', version: `${table.id}:${table.version}`, purpose: 'simulation',

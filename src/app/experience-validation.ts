@@ -2,6 +2,14 @@ import type { ExperienceState } from './experience-types';
 export function validateExperience(value: unknown): asserts value is ExperienceState {
   if (!value || typeof value !== 'object') throw new Error('Rascunho de interface inválido.');
   const ux = value as ExperienceState;
+  if (ux.programPricing !== undefined) {
+    const p = ux.programPricing;
+    if (!p || typeof p !== 'object' || Array.isArray(p)) throw new Error('Configuração de programas inválida.');
+    const enums: Record<string, string[]> = { affiliateAttribution: ['none','direct','indirect','unknown'], affiliateDynamic: ['off','low','base','high','unknown'], advanceTier: ['official','indicated','other','unknown'] };
+    for (const [key, val] of Object.entries(p)) {
+      if (typeof val !== 'string' || val.length > 40 || (enums[key] ? !enums[key]!.includes(val) : !['adsRate','affiliateRate','affiliateExtraRate','advanceShare'].includes(key))) throw new Error('Parâmetro de programa inválido: ' + key);
+    }
+  }
   if (ux.materialIncluded !== undefined && typeof ux.materialIncluded !== 'boolean') throw new Error('Seleção de material inválida.');
   if (ux.packagingDecision !== undefined && !['include', 'exclude', 'unknown'].includes(ux.packagingDecision)) throw new Error('Seleção de embalagem inválida.');
   if (ux.packagingExtraIncluded !== undefined && typeof ux.packagingExtraIncluded !== 'boolean') throw new Error('Seleção de embalagem adicional inválida.');

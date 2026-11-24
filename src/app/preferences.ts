@@ -15,6 +15,11 @@ export function applySavedStore(current: CalculatorDraft, saved: CalculatorDraft
   const ux = current.ux ? { ...current.ux, persistentPrograms: saved.ux?.persistentPrograms ?? [], profileOrigins: { ...current.ux.profileOrigins } } : undefined;
   if (ux) {
     delete ux.programDeclaration;
+    const p = saved.ux?.programPricing;
+    if (p) {
+      // Rates are reusable preferences; attribution and actual advanced share are per-order.
+      ux.programPricing = { ...p, affiliateAttribution: 'unknown' as const, advanceShare: '' };
+    } else delete ux.programPricing;
     if (sameDate && saved.ux?.programDeclaration) ux.programDeclaration = structuredClone(saved.ux.programDeclaration);
     ux.profileOrigins.store = { name: 'Minha loja Shopee', signature: profileSignature({ ...current, fields, ux }, 'store') };
   }

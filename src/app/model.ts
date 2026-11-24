@@ -105,6 +105,7 @@ export function buildScenario(draft: CalculatorDraft, tables: readonly ShopeeTab
     ordersLast90Days: t('marketplace') !== 'shopee' || t('seller') !== 'CPF' || t('orders') === '' ? null : integer(t('orders'), 'Pedidos em 90 dias'),
     returnsProtection: t('returns') as ShopeeContext['returnsProtection'], highlightCampaign: t('highlight') as Participation,
     adsEasy: t('ads') as Participation, affiliates: t('affiliates') as Participation, cashAdvance: t('advance') as Participation,
+    ...(draft.ux?.programPricing ? { programPricing: draft.ux.programPricing } : {}),
     shippingConfirmed: draft.ux ? draft.ux.shipping !== 'unknown' : yes('shippingConfirmed'),
     ...(draft.ux ? { volumeStatement: { relation: draft.ux.volume.date === t('date') ? draft.ux.volume.answer : 'unknown' as const, threshold: draft.ux.volume.threshold ?? 0 } } : {}),
   };

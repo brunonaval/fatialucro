@@ -46,7 +46,7 @@ export function ResultView({ result, solution, stale, catalog, expenses, flat = 
       {result.manufacturing.lines.map(line => <tr key={line.id}><td>{line.name}</td><td>{line.formula}<br />Antes de arredondar: {line.rawPerUnit}</td><td>{currency(line.perUnit)}</td><td>{currency(line.total)}</td></tr>)}
     </tbody></table></div></AuditBlock>
     <h3>Taxas individualizadas</h3>{result.fees.map(line => <AuditBlock key={line.rule.id} flat={flat} title={<>{line.rule.name}: total {currency(line.amount)} — incidência por {line.rule.scope === 'item' ? 'unidade' : 'pedido'} — {line.rule.evidence.verification === 'custom' ? 'personalizada' : 'documentada'}</>}>
-      <p>Identificador: {line.rule.id}; versão: {line.rule.version}; base: {line.rule.base === 'gross-sales' ? 'receita bruta' : 'receita após desconto do vendedor'}; {line.rule.requirement === 'mandatory' ? 'obrigatória' : line.rule.requirement === 'conditional' ? 'condicional' : 'opcional'}.</p>
+      <p>Identificador: {line.rule.id}; versão: {line.rule.version}; base: {line.rule.base === 'gross-sales' ? 'receita bruta' : line.rule.base === 'after-marketplace-fees' ? 'recebível após comissões e taxas adicionais' : 'receita após desconto do vendedor'}; {line.rule.requirement === 'mandatory' ? 'obrigatória' : line.rule.requirement === 'conditional' ? 'condicional' : 'opcional'}.</p>
       <p>Fórmula: {formulaText(line.resolvedFormula)}. Período: {line.rule.effectiveFrom ?? 'início não comprovado'} a {line.rule.effectiveUntil ?? 'fim não comprovado'}; origem: {line.rule.evidence.verification === 'custom' ? 'personalizada' : 'documental'}.</p>
       <p>{line.rule.evidence.reference}</p>
       {line.rule.override && <p>Substitui somente esta cobrança. Fórmula documental anterior: {formulaText(line.rule.override.originalFormula)}. Fonte anterior: {line.rule.override.originalEvidence.id}. O parâmetro personalizado não se torna uma tarifa oficial.</p>}
@@ -54,7 +54,7 @@ export function ResultView({ result, solution, stale, catalog, expenses, flat = 
       <ul>{line.rule.evidence.urls.map(url => <li key={url}><a href={url} target="_blank" rel="noreferrer">Documento oficial arquivado</a></li>)}</ul>
     </AuditBlock>)}
     {unresolved.map(rule => <AuditBlock key={rule.id} flat={flat} title={<>{rule.name}: valor pendente — {rule.requirement === 'mandatory' ? 'obrigatória' : rule.requirement === 'conditional' ? 'condicional' : 'opcional'}</>}>
-      <p>Fórmula: {formulaText(rule.formula)}; incidência por {rule.scope === 'item' ? 'unidade' : 'pedido'}; base {rule.base === 'gross-sales' ? 'receita bruta' : 'após desconto do vendedor'}. Não somada ao subtotal calculável enquanto houver indeterminação.</p>
+      <p>Fórmula: {formulaText(rule.formula)}; incidência por {rule.scope === 'item' ? 'unidade' : 'pedido'}; base {rule.base === 'gross-sales' ? 'receita bruta' : rule.base === 'after-marketplace-fees' ? 'recebível após comissões e taxas adicionais' : 'após desconto do vendedor'}. Não somada ao subtotal calculável enquanto houver indeterminação.</p>
       <p>{rule.evidence.reference}</p><ul>{rule.evidence.urls.map(url => <li key={url}><a href={url} target="_blank" rel="noreferrer">Documento de referência</a></li>)}</ul>
     </AuditBlock>)}
     {!!result.excluded.length && <AuditBlock flat={flat} title={<>Componentes não somados</>}><ul>{result.excluded.map(line => <li key={line.id}>{line.id}: {line.reason}</li>)}</ul></AuditBlock>}

@@ -43,7 +43,7 @@ describe('Atualizador assinado — versões do FatiaLucro', () => {
     const html = renderToStaticMarkup(<UpdatePanel beforeInstall={async () => {}} />);
     expect(html).toContain('Buscar atualizações');
     expect(html).toContain('Versão instalada:');
-    expect(html).toContain('0.2.3');
+    expect(html).toContain('0.2.4');
     expect(html).toContain('Histórico de versões publicadas');
   });
 
